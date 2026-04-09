@@ -186,18 +186,3 @@ body {
   transform: scale(1.15);
   background: red;
 }
-
-@keyframes shake {
-  0% { transform: rotate(-1deg); }
-  50% { transform: rotate(1.5deg) translateY(-1px); }
-  100% { transform: rotate(-1deg); }
-}
-
-.image-card.shaking {
-  animation: shake 0.4s infinite alternate;
-  cursor: default;
-}
-.image-card.shaking:hover {
-  transform: none; /* Disable hover pop during edit mode */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-}

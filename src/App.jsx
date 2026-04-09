@@ -149,7 +149,7 @@ function App() {
           {images.map((img, idx) => (
             <div 
               key={`${img}-${idx}`} 
-              className={`image-card ${isDeleteMode ? 'shaking' : ''}`}
+              className="image-card"
               draggable={!isDeleteMode}
               onDragStart={(e) => !isDeleteMode && handleItemDragStart(e, idx)}
               onDragEnd={!isDeleteMode ? handleItemDragEnd : undefined}
