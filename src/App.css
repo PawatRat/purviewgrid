@@ -162,10 +162,23 @@ body {
   position: relative;
 }
 
-.delete-badge {
+.card-actions {
   position: absolute;
   top: 8px;
   right: 8px;
+  left: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none; /* Let clicks pass through empty space */
+  z-index: 10;
+}
+
+.card-actions > * {
+  pointer-events: auto; /* Re-enable clicks for badges */
+}
+
+.delete-badge {
   background: rgba(255, 60, 60, 0.9);
   color: white;
   width: 28px;
@@ -185,4 +198,44 @@ body {
 .delete-badge:hover {
   transform: scale(1.15);
   background: red;
+}
+
+.pin-badge {
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  transition: transform 0.15s ease, background 0.2s ease;
+  font-size: 16px;
+  opacity: 0; /* Hidden by default */
+}
+
+/* Show badge when hovered, or if it's already pinned */
+.image-card:hover .pin-badge,
+.pin-badge.pinned {
+  opacity: 1;
+}
+
+.pin-badge:hover {
+  transform: scale(1.15) rotate(-10deg);
+  background: #fff;
+}
+
+.pin-badge.pinned {
+  background: #FFD700; /* Gold for pinned items */
+  box-shadow: 0 2px 10px rgba(255, 215, 0, 0.5);
+}
+
+.section-separator {
+  border: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,107,107,0) 0%, rgba(255,142,83,0.8) 50%, rgba(255,107,107,0) 100%);
+  margin: 10px 40px 40px 40px;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255, 142, 83, 0.4);
 }

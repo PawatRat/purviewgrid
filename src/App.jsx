@@ -4,9 +4,13 @@ import './App.css';
 
 function App() {
   const [images, setImages] = useState([]);
+  const [pinnedImages, setPinnedImages] = useState([]);
   const [columns, setColumns] = useState(4); // Default Scale
-  const [draggingIdx, setDraggingIdx] = useState(null); // Track which item is being dragged
+  const [draggingItem, setDraggingItem] = useState(null); // Track which item {type, index} is being dragged
   const [isDeleteMode, setDeleteMode] = useState(false); // Edit/Delete mode
+
+  // Helper to check duplicates
+  const isDuplicate = (f, currentImages, currentPinned) => currentImages.includes(f) || currentPinned.includes(f);
 
   // Setup OS file opening IPC callback and global drag prevention
   useEffect(() => {
@@ -20,9 +24,13 @@ function App() {
       cleanup = window.electronAPI.onOpenedFiles((files) => {
         const imageFiles = files.filter(f => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f));
         setImages(prev => {
+          // We need latest pinnedImages to avoid duplicates, but since IPC is setup once, 
+          // we use functional state updates which only have access to `prev` images.
+          // To be perfectly safe, we allow the dropzone to handle it, but for IPC it's rare to duplicate.
+          // We'll just check against `prev`.
           const newImages = [...prev];
           imageFiles.forEach(f => {
-            if (!newImages.includes(f)) newImages.push(f);
+            if (!newImages.includes(f) && !pinnedImages.includes(f)) newImages.push(f);
           });
           return newImages;
         });
@@ -34,7 +42,7 @@ function App() {
       window.removeEventListener('drop', preventNav);
       cleanup();
     };
-  }, []);
+  }, [pinnedImages]); // Re-bind IPC when pinnedImages changes to capture current state for duplicates
 
   // Window drag handlers (for adding new files)
   const handleWindowDragOver = (e) => {
@@ -43,7 +51,7 @@ function App() {
 
   const handleWindowDrop = (e) => {
     e.preventDefault();
-    if (draggingIdx !== null) return; // Ignore internal element reorder drops
+    if (draggingItem !== null) return; // Ignore internal element reorder drops
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files).map(f => f.path);
@@ -52,7 +60,7 @@ function App() {
       setImages(prev => {
         const newImages = [...prev];
         imageFiles.forEach(f => {
-          if (!newImages.includes(f)) newImages.push(f);
+          if (!isDuplicate(f, newImages, pinnedImages)) newImages.push(f);
         });
         return newImages;
       });
@@ -60,11 +68,10 @@ function App() {
   };
 
   // Internal Item drag handlers (reordering)
-  const handleItemDragStart = (e, index) => {
+  const handleItemDragStart = (e, index, type) => {
     e.stopPropagation();
-    setDraggingIdx(index);
+    setDraggingItem({ type, index });
     e.dataTransfer.effectAllowed = "move";
-    // Optional: Make it slightly transparent while dragging
     setTimeout(() => {
       e.target.style.opacity = '0.5';
     }, 0);
@@ -72,7 +79,7 @@ function App() {
 
   const handleItemDragEnd = (e) => {
     e.target.style.opacity = '1';
-    setDraggingIdx(null);
+    setDraggingItem(null);
   };
 
   const handleItemDragOver = (e) => {
@@ -81,23 +88,95 @@ function App() {
     e.dataTransfer.dropEffect = "move";
   };
 
-  const handleItemDrop = (e, dropIndex) => {
+  const handleItemDrop = (e, dropIndex, dropType) => {
     e.preventDefault();
     e.stopPropagation();
-    if (draggingIdx === null || draggingIdx === dropIndex) return;
+    if (!draggingItem) return;
+    
+    // Constraints: cannot move between pinned and unpinned
+    if (draggingItem.type !== dropType) return;
+    if (draggingItem.index === dropIndex) return;
 
-    setImages(prev => {
-      const newImages = [...prev];
-      const [movedItem] = newImages.splice(draggingIdx, 1);
-      newImages.splice(dropIndex, 0, movedItem);
-      return newImages;
-    });
-    setDraggingIdx(null);
+    if (dropType === 'pinned') {
+      setPinnedImages(prev => {
+        const newArr = [...prev];
+        const [movedItem] = newArr.splice(draggingItem.index, 1);
+        newArr.splice(dropIndex, 0, movedItem);
+        return newArr;
+      });
+    } else {
+      setImages(prev => {
+        const newArr = [...prev];
+        const [movedItem] = newArr.splice(draggingItem.index, 1);
+        newArr.splice(dropIndex, 0, movedItem);
+        return newArr;
+      });
+    }
+    setDraggingItem(null);
   };
 
-  const handleRemoveImage = (e, indexToRemove) => {
+  const handleRemoveImage = (e, indexToRemove, type) => {
     e.stopPropagation();
-    setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    if (type === 'pinned') {
+      setPinnedImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    } else {
+      setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    }
+  };
+
+  const togglePin = (e, imgPath, currentType) => {
+    e.stopPropagation();
+    if (currentType === 'unpinned') {
+      setImages(prev => prev.filter(p => p !== imgPath));
+      setPinnedImages(prev => [imgPath, ...prev]);
+    } else {
+      setPinnedImages(prev => prev.filter(p => p !== imgPath));
+      setImages(prev => [imgPath, ...prev]);
+    }
+  };
+
+  const renderGrid = (imgList, type) => {
+    if (imgList.length === 0) return null;
+    return (
+      <Masonry
+        breakpointCols={columns}
+        className="my-masonry-grid"
+        columnClassName="my-masonry-grid_column"
+      >
+        {imgList.map((img, idx) => (
+          <div 
+            key={`${img}-${idx}`} 
+            className="image-card"
+            draggable={!isDeleteMode}
+            onDragStart={(e) => !isDeleteMode && handleItemDragStart(e, idx, type)}
+            onDragEnd={!isDeleteMode ? handleItemDragEnd : undefined}
+            onDragOver={!isDeleteMode ? handleItemDragOver : undefined}
+            onDrop={(e) => !isDeleteMode && handleItemDrop(e, idx, type)}
+          >
+            {/* Context Actions Container */}
+            <div className="card-actions">
+              <div 
+                className={`pin-badge ${type === 'pinned' ? 'pinned' : ''}`}
+                onClick={(e) => togglePin(e, img, type)}
+                title={type === 'pinned' ? "Unpin Image" : "Pin Image"}
+              >
+                📌
+              </div>
+              {isDeleteMode && (
+                <div 
+                  className="delete-badge" 
+                  onClick={(e) => handleRemoveImage(e, idx, type)}
+                  title="Remove Image"
+                >
+                  ✕
+                </div>
+              )}
+            </div>
+            <img src={`file://${img}`} alt={`img-${idx}`} loading="lazy" />
+          </div>
+        ))}
+      </Masonry>
+    );
   };
 
   return (
@@ -136,39 +215,20 @@ function App() {
         </div>
       </header>
 
-      {images.length === 0 ? (
+      {images.length === 0 && pinnedImages.length === 0 ? (
         <div className="empty-state">
           No images loaded. Drag and drop some images here!
         </div>
       ) : (
-        <Masonry
-          breakpointCols={columns}
-          className="my-masonry-grid"
-          columnClassName="my-masonry-grid_column"
-        >
-          {images.map((img, idx) => (
-            <div 
-              key={`${img}-${idx}`} 
-              className="image-card"
-              draggable={!isDeleteMode}
-              onDragStart={(e) => !isDeleteMode && handleItemDragStart(e, idx)}
-              onDragEnd={!isDeleteMode ? handleItemDragEnd : undefined}
-              onDragOver={!isDeleteMode ? handleItemDragOver : undefined}
-              onDrop={(e) => !isDeleteMode && handleItemDrop(e, idx)}
-            >
-              {isDeleteMode && (
-                <div 
-                  className="delete-badge" 
-                  onClick={(e) => handleRemoveImage(e, idx)}
-                  title="Remove Image"
-                >
-                  ✕
-                </div>
-              )}
-              <img src={`file://${img}`} alt={`img-${idx}`} loading="lazy" />
+        <div className="grids-container">
+          {pinnedImages.length > 0 && (
+            <div className="pinned-section">
+              {renderGrid(pinnedImages, 'pinned')}
+              <hr className="section-separator" />
             </div>
-          ))}
-        </Masonry>
+          )}
+          {renderGrid(images, 'unpinned')}
+        </div>
       )}
     </div>
     </>
