@@ -8,10 +8,16 @@ function App() {
   const [draggingIdx, setDraggingIdx] = useState(null); // Track which item is being dragged
   const [isDeleteMode, setDeleteMode] = useState(false); // Edit/Delete mode
 
-  // Setup OS file opening IPC callback
+  // Setup OS file opening IPC callback and global drag prevention
   useEffect(() => {
+    // Prevent Chromium from navigating when dropping files outside the dropzone
+    const preventNav = (e) => e.preventDefault();
+    window.addEventListener('dragover', preventNav);
+    window.addEventListener('drop', preventNav);
+
+    let cleanup = () => {};
     if (window.electronAPI) {
-      const cleanup = window.electronAPI.onOpenedFiles((files) => {
+      cleanup = window.electronAPI.onOpenedFiles((files) => {
         const imageFiles = files.filter(f => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f));
         setImages(prev => {
           const newImages = [...prev];
@@ -21,8 +27,13 @@ function App() {
           return newImages;
         });
       });
-      return cleanup;
     }
+
+    return () => {
+      window.removeEventListener('dragover', preventNav);
+      window.removeEventListener('drop', preventNav);
+      cleanup();
+    };
   }, []);
 
   // Window drag handlers (for adding new files)
