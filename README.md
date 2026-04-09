@@ -2,7 +2,7 @@
 
 **Purview Grid** is a beautiful, blazing-fast native MacOS desktop image viewer that renders images in a highly customizable, fluid Pinterest-style Masonry grid. Drop folders and images onto the canvas to instantly build beautiful moodboards, reference grids, and galleries.
 
-<video src="demo.mp4" autoplay loop muted playsinline width="100%"></video>
+![Purview Demonstration](demo.gif)
 
 ## Features
 
