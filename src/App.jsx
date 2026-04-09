@@ -6,6 +6,7 @@ function App() {
   const [images, setImages] = useState([]);
   const [columns, setColumns] = useState(4); // Default Scale
   const [draggingIdx, setDraggingIdx] = useState(null); // Track which item is being dragged
+  const [isDeleteMode, setDeleteMode] = useState(false); // Edit/Delete mode
 
   // Setup OS file opening IPC callback
   useEffect(() => {
@@ -83,6 +84,11 @@ function App() {
     setDraggingIdx(null);
   };
 
+  const handleRemoveImage = (e, indexToRemove) => {
+    e.stopPropagation();
+    setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
   return (
     <>
       <div className="title-bar"></div>
@@ -95,19 +101,27 @@ function App() {
         <h1>Purview</h1>
         <p>Drop images here or Right-Click {"->"} Open With Purview</p>
         
-        {/* Scale Controls */}
-        <div className="scale-controls no-drag">
-          <label htmlFor="scale-slider">Scale (Columns)</label>
-          <input 
-            id="scale-slider"
-            type="range" 
-            min="1" 
-            max="12" 
-            value={columns} 
-            onChange={(e) => setColumns(Number(e.target.value))}
-            title={`Current scale: ${columns} column${columns > 1 ? 's' : ''}`}
-          />
-          <span className="scale-value">{columns}</span>
+        {/* Control Bar (Scale / Actions) */}
+        <div className="controls-bar no-drag">
+          <div className="scale-controls">
+            <label htmlFor="scale-slider">Scale (Columns)</label>
+            <input 
+              id="scale-slider"
+              type="range" 
+              min="1" 
+              max="12" 
+              value={columns} 
+              onChange={(e) => setColumns(Number(e.target.value))}
+              title={`Current scale: ${columns} column${columns > 1 ? 's' : ''}`}
+            />
+            <span className="scale-value">{columns}</span>
+          </div>
+          <button 
+            className={`action-btn ${isDeleteMode ? 'active' : ''}`}
+            onClick={() => setDeleteMode(!isDeleteMode)}
+          >
+            {isDeleteMode ? 'Done' : 'Edit / Remove'}
+          </button>
         </div>
       </header>
 
@@ -124,13 +138,22 @@ function App() {
           {images.map((img, idx) => (
             <div 
               key={`${img}-${idx}`} 
-              className="image-card"
-              draggable={true}
-              onDragStart={(e) => handleItemDragStart(e, idx)}
-              onDragEnd={handleItemDragEnd}
-              onDragOver={handleItemDragOver}
-              onDrop={(e) => handleItemDrop(e, idx)}
+              className={`image-card ${isDeleteMode ? 'shaking' : ''}`}
+              draggable={!isDeleteMode}
+              onDragStart={(e) => !isDeleteMode && handleItemDragStart(e, idx)}
+              onDragEnd={!isDeleteMode ? handleItemDragEnd : undefined}
+              onDragOver={!isDeleteMode ? handleItemDragOver : undefined}
+              onDrop={(e) => !isDeleteMode && handleItemDrop(e, idx)}
             >
+              {isDeleteMode && (
+                <div 
+                  className="delete-badge" 
+                  onClick={(e) => handleRemoveImage(e, idx)}
+                  title="Remove Image"
+                >
+                  ✕
+                </div>
+              )}
               <img src={`file://${img}`} alt={`img-${idx}`} loading="lazy" />
             </div>
           ))}
