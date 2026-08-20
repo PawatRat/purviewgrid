@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar';
 import MasonryGrid from './components/MasonryGrid';
 import EmptyState from './components/EmptyState';
 import Lightbox from './components/Lightbox';
+import PinnedBoard from './components/PinnedBoard';
+import { IconExpand } from './components/icons';
 import { usePersistentState } from './hooks/usePersistentState';
 import { INITIAL_ITEMS, DEFAULT_ALBUMS } from './data/sampleData';
 import './styles/gallery.css';
@@ -16,6 +18,7 @@ function App() {
   // UI State
   const [activeView, setActiveView] = useState('all'); // 'all', 'pinned', 'favorites', 'album-<id>'
   const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isPinnedExpanded, setPinnedExpanded] = useState(false);
   const [columns, setColumns] = useState(4);
   const [isDeleteMode, setDeleteMode] = useState(false);
   const [previewData, setPreviewData] = useState(null); // { itemList, index }
@@ -268,53 +271,91 @@ function App() {
           onDeleteAlbum={handleDeleteAlbum}
         />
 
-        {/* Gallery Workspace Canvas */}
-        <main
-          className="app-container"
-          onDragOver={handleWindowDragOver}
-          onDrop={handleWindowDrop}
-        >
-          {currentViewItems.length === 0 ? (
-            <EmptyState viewTitle={currentViewTitle} onLoadSample={handleResetSampleGallery} />
-          ) : (
-            <div className="grids-container">
-              {/* Show Pinned section when in 'all' view or album views if pinned items exist */}
-              {activeView !== 'pinned' && pinnedItems.length > 0 && (
-                <section className="section-block pinned-section">
-                  <div className="section-header">
-                    <div className="section-title-wrap">
-                      <span className="section-dot pinned"></span>
-                      <span className="section-label">PINNED REFERENCES</span>
-                      <span className="section-pill">{pinnedItems.length}</span>
+        {/* Gallery Workspace Canvas or Expanded Pinned Focus Board */}
+        {isPinnedExpanded && pinnedItems.length > 0 ? (
+          <PinnedBoard
+            items={pinnedItems}
+            onTogglePin={togglePin}
+            onToggleFavorite={toggleFavorite}
+            onOpenPreview={openPreview}
+            onCloseBoard={() => setPinnedExpanded(false)}
+          />
+        ) : (
+          <main
+            className="app-container"
+            onDragOver={handleWindowDragOver}
+            onDrop={handleWindowDrop}
+          >
+            {currentViewItems.length === 0 ? (
+              <EmptyState viewTitle={currentViewTitle} onLoadSample={handleResetSampleGallery} />
+            ) : (
+              <div className="grids-container">
+                {/* Show Pinned section when in 'all' view or album views if pinned items exist */}
+                {activeView !== 'pinned' && pinnedItems.length > 0 && (
+                  <section className="section-block pinned-section">
+                    <div className="section-header">
+                      <div className="section-title-wrap">
+                        <span className="section-dot pinned"></span>
+                        <span className="section-label">PINNED REFERENCES</span>
+                        <span className="section-pill">{pinnedItems.length}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="expand-section-btn"
+                        onClick={() => setPinnedExpanded(true)}
+                        title="Expand pinned images into a single optimized focus panel"
+                      >
+                        <IconExpand />
+                        <span>Expand Board</span>
+                      </button>
                     </div>
-                  </div>
+                    <MasonryGrid
+                      columns={columns}
+                      items={pinnedItems}
+                      {...cardHandlers}
+                    />
+                  </section>
+                )}
+
+                <section className="section-block gallery-section">
+                  {activeView === 'pinned' && (
+                    <div className="section-header">
+                      <div className="section-title-wrap">
+                        <span className="section-dot pinned"></span>
+                        <span className="section-label">PINNED REFERENCES</span>
+                        <span className="section-pill">{pinnedItems.length}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="expand-section-btn"
+                        onClick={() => setPinnedExpanded(true)}
+                        title="Expand pinned images into a single optimized focus panel"
+                      >
+                        <IconExpand />
+                        <span>Expand Board</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {activeView !== 'pinned' && pinnedItems.length > 0 && (
+                    <div className="section-header">
+                      <div className="section-title-wrap">
+                        <span className="section-dot"></span>
+                        <span className="section-label">ALL ASSETS</span>
+                        <span className="section-pill">{unpinnedItems.length}</span>
+                      </div>
+                    </div>
+                  )}
                   <MasonryGrid
                     columns={columns}
-                    items={pinnedItems}
+                    items={activeView === 'pinned' ? pinnedItems : unpinnedItems}
                     {...cardHandlers}
                   />
                 </section>
-              )}
-
-              <section className="section-block gallery-section">
-                {activeView !== 'pinned' && pinnedItems.length > 0 && (
-                  <div className="section-header">
-                    <div className="section-title-wrap">
-                      <span className="section-dot"></span>
-                      <span className="section-label">ALL ASSETS</span>
-                      <span className="section-pill">{unpinnedItems.length}</span>
-                    </div>
-                  </div>
-                )}
-                <MasonryGrid
-                  columns={columns}
-                  items={activeView === 'pinned' ? pinnedItems : unpinnedItems}
-                  {...cardHandlers}
-                />
-              </section>
-            </div>
-          )}
-        </main>
+              </div>
+            )}
+          </main>
+        )}
       </div>
 
       {/* Studio Lightbox Preview Modal */}
