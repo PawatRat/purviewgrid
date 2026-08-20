@@ -2,7 +2,7 @@
   "name": "purviewgrid",
   "productName": "Purview",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 electron .\"",
@@ -36,8 +36,15 @@
   "main": "electron/main.cjs",
   "build": {
     "appId": "com.purview.app",
+    "productName": "Purview",
     "mac": {
-      "category": "public.app-category.photography"
+      "category": "public.app-category.photography",
+      "icon": "build/icon.icns",
+      "target": [
+        "dmg",
+        "zip",
+        "dir"
+      ]
     },
     "fileAssociations": [
       {
@@ -58,7 +65,8 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "public/**/*"
     ]
   },
   "author": "Purview",
