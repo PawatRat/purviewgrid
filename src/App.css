@@ -4,10 +4,11 @@
 
 :root {
   --bg-app: #09090b;
+  --bg-sidebar: #0f1013;
   --bg-surface: #121316;
   --bg-surface-hover: #18191e;
   --bg-card: #131418;
-  --bg-toolbar: rgba(9, 9, 11, 0.82);
+  --bg-toolbar: rgba(9, 9, 11, 0.85);
   --bg-pill: rgba(255, 255, 255, 0.05);
   --bg-pill-hover: rgba(255, 255, 255, 0.09);
 
@@ -23,6 +24,8 @@
   --accent-hover: #60a5fa;
   --accent-gold: #f59e0b;
   --accent-gold-bg: rgba(245, 158, 11, 0.15);
+  --accent-yellow: #eab308;
+  --accent-yellow-bg: rgba(234, 179, 8, 0.15);
   --danger: #ef4444;
   --danger-bg: rgba(239, 68, 68, 0.15);
 
@@ -54,6 +57,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.app-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ==========================================================================
    Sleek Native Top Navigation Bar
    ========================================================================== */
@@ -83,17 +92,36 @@ body {
   -webkit-app-region: no-drag;
 }
 
+.sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.sidebar-toggle-btn.active {
+  color: var(--text-primary);
+}
+
 .brand-group {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   user-select: none;
-}
-
-.brand-icon {
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
 }
 
 .brand-name {
@@ -102,6 +130,18 @@ body {
   letter-spacing: 0.12em;
   color: var(--text-primary);
   opacity: 0.9;
+}
+
+.breadcrumb-divider {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.6;
+}
+
+.breadcrumb-view {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .item-count-badge {
@@ -115,11 +155,6 @@ body {
   align-items: center;
   gap: 4px;
   user-select: none;
-}
-
-.pinned-count-tag {
-  color: var(--accent-gold);
-  font-weight: 500;
 }
 
 .controls-bar {
@@ -242,15 +277,213 @@ body {
   color: #fff;
 }
 
-.action-pill-btn.accent {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+/* ==========================================================================
+   App Body & Collapsible Sidebar
+   ========================================================================== */
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: calc(100vh - 48px);
+  position: relative;
 }
 
-.action-pill-btn.accent:hover {
-  background: rgba(59, 130, 246, 0.25);
-  border-color: rgba(59, 130, 246, 0.5);
+.app-sidebar {
+  width: 220px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 12px 20px 12px;
+  transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), padding 0.2s ease, opacity 0.15s ease;
+  overflow: hidden;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.app-sidebar.closed {
+  width: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-right: none;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 6px 8px;
+}
+
+.sidebar-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  padding: 4px 8px 6px 8px;
+}
+
+.sidebar-section-header .sidebar-section-title {
+  padding: 0;
+}
+
+.add-album-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.add-album-btn:hover {
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
+.new-album-form {
+  padding: 4px 8px 8px 8px;
+}
+
+.new-album-form input {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.new-album-form input:focus {
+  border-color: var(--accent);
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+  position: relative;
+}
+
+.sidebar-nav-item:hover {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.sidebar-nav-item.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 600;
+}
+
+.sidebar-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.sidebar-nav-item.active .sidebar-nav-icon {
+  color: var(--text-primary);
+}
+
+.sidebar-nav-icon.gold {
+  color: var(--accent-gold);
+}
+
+.sidebar-nav-icon.yellow {
+  color: var(--accent-yellow);
+}
+
+.sidebar-nav-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-nav-count {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.album-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-xs);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+}
+
+.sidebar-nav-item:hover .album-delete-btn {
+  display: flex;
+}
+
+.album-delete-btn:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.sidebar-footer {
+  padding: 8px 4px 0 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.reset-demo-btn {
+  width: 100%;
+  background: transparent;
+  border: 1px dashed var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reset-demo-btn:hover {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-color: var(--border-hover);
 }
 
 /* ==========================================================================
@@ -258,8 +491,10 @@ body {
    ========================================================================== */
 
 .app-container {
+  flex: 1;
   min-height: calc(100vh - 48px);
   padding: 16px 20px 40px 20px;
+  overflow-y: auto;
 }
 
 .grids-container {
@@ -336,7 +571,7 @@ body {
   position: relative;
   margin-bottom: 16px;
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: visible;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--shadow-card);
@@ -348,11 +583,7 @@ body {
   transform: translateY(-2px);
   box-shadow: var(--shadow-card-hover);
   border-color: var(--border-hover);
-  z-index: 2;
-}
-
-.image-card:active {
-  cursor: grabbing;
+  z-index: 5;
 }
 
 .image-card.in-delete-mode {
@@ -362,6 +593,7 @@ body {
 .img-container {
   width: 100%;
   overflow: hidden;
+  border-radius: var(--radius-md);
   display: block;
 }
 
@@ -389,10 +621,11 @@ body {
   pointer-events: auto;
 }
 
+.left-actions,
 .right-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .card-btn {
@@ -436,9 +669,101 @@ body {
   border-color: rgba(245, 158, 11, 0.4);
 }
 
-.pin-btn.pinned:hover {
-  background: rgba(245, 158, 11, 0.3);
-  color: #fbbf24;
+/* Favorite Star Button */
+.fav-btn {
+  opacity: 0;
+}
+
+.image-card:hover .fav-btn,
+.fav-btn.favorited {
+  opacity: 1;
+}
+
+.fav-btn.favorited {
+  background: var(--accent-yellow-bg);
+  color: var(--accent-yellow);
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+/* Album Tag Button & Popover */
+.album-btn {
+  opacity: 0;
+}
+
+.image-card:hover .album-btn {
+  opacity: 1;
+}
+
+.album-popover {
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  width: 170px;
+  background: rgba(18, 19, 23, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover);
+  padding: 8px;
+  z-index: 100;
+  animation: popoverScale 0.15s ease-out;
+}
+
+.album-popover-header {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  padding: 4px 6px 6px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 4px;
+}
+
+.album-popover-empty {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.album-popover-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.album-popover-item:hover {
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
+.album-popover-item.assigned {
+  color: #fff;
+  font-weight: 500;
+}
+
+.album-checkbox {
+  width: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.album-popover-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Expand Button */
@@ -539,7 +864,7 @@ body {
 .preview-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(4, 4, 6, 0.92);
+  background: rgba(4, 4, 6, 0.94);
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
   display: flex;
@@ -578,6 +903,45 @@ body {
 
 .preview-counter-pill .slash {
   color: var(--text-tertiary);
+}
+
+.preview-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.preview-action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.preview-action-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text-primary);
+  transform: scale(1.08);
+}
+
+.preview-action-btn.favorited {
+  color: var(--accent-yellow);
+  background: var(--accent-yellow-bg);
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+.preview-action-btn.pinned {
+  color: var(--accent-gold);
+  background: var(--accent-gold-bg);
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 .preview-close-btn {
@@ -703,4 +1067,9 @@ body {
 @keyframes frameScaleIn {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes popoverScale {
+  from { transform: scale(0.95) translateY(-4px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
 }

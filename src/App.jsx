@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Masonry from 'react-masonry-css';
 import './App.css';
 
@@ -6,6 +6,12 @@ import './App.css';
 const IconPin = ({ filled = false }) => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 17v5M9 2h6l-1 7h3l-5 8-5-8h3l-1-7z" />
+  </svg>
+);
+
+const IconStar = ({ filled = false }) => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
   </svg>
 );
 
@@ -61,7 +67,7 @@ const IconPlus = () => (
 );
 
 const IconGrid = () => (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="3" width="7" height="7" rx="1.5" />
     <rect x="14" y="3" width="7" height="7" rx="1.5" />
     <rect x="14" y="14" width="7" height="7" rx="1.5" />
@@ -69,11 +75,30 @@ const IconGrid = () => (
   </svg>
 );
 
-const IconAppLogo = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="3" y="3" width="8" height="18" rx="2" />
-    <rect x="13" y="3" width="8" height="10" rx="2" />
-    <rect x="13" y="15" width="8" height="6" rx="2" />
+const IconClock = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const IconFolder = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+const IconSidebar = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <line x1="9" y1="3" x2="9" y2="21" />
+  </svg>
+);
+
+const IconTag = () => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+    <line x1="7" y1="7" x2="7.01" y2="7" />
   </svg>
 );
 
@@ -98,6 +123,20 @@ const SAMPLE_IMAGES = [
   'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=800&auto=format&fit=crop&q=80'
 ];
 
+const DEFAULT_ALBUMS = [
+  { id: 'album-inspo', name: 'Inspirations' },
+  { id: 'album-arch', name: 'Architecture' }
+];
+
+const INITIAL_ITEMS = SAMPLE_IMAGES.map((path, idx) => ({
+  id: `img-${idx}`,
+  path,
+  addedAt: Date.now() - idx * 3600000,
+  isPinned: idx < 2,
+  isFavorite: idx === 0 || idx === 3 || idx === 6,
+  albumIds: idx % 3 === 0 ? ['album-inspo'] : idx % 3 === 1 ? ['album-arch'] : []
+}));
+
 const getImageSrc = (path) => {
   if (!path) return '';
   if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('blob:')) {
@@ -107,42 +146,101 @@ const getImageSrc = (path) => {
 };
 
 function App() {
-  const [images, setImages] = useState(SAMPLE_IMAGES.slice(2));
-  const [pinnedImages, setPinnedImages] = useState([SAMPLE_IMAGES[0], SAMPLE_IMAGES[1]]);
+  // Persistent State
+  const [items, setItems] = useState(() => {
+    try {
+      const saved = localStorage.getItem('purview_gallery_items');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return INITIAL_ITEMS;
+  });
+
+  const [albums, setAlbums] = useState(() => {
+    try {
+      const saved = localStorage.getItem('purview_gallery_albums');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return DEFAULT_ALBUMS;
+  });
+
+  const [activeView, setActiveView] = useState('all'); // 'all', 'pinned', 'favorites', 'album-<id>'
+  const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [columns, setColumns] = useState(4);
-  const [draggingItem, setDraggingItem] = useState(null);
   const [isDeleteMode, setDeleteMode] = useState(false);
-  const [previewData, setPreviewData] = useState(null);
+  const [previewData, setPreviewData] = useState(null); // { item, index, list }
+  const [isCreatingAlbum, setIsCreatingAlbum] = useState(false);
+  const [newAlbumName, setNewAlbumName] = useState('');
+  const [activeAlbumMenuId, setActiveAlbumMenuId] = useState(null); // itemId for album tagging dropdown
 
   const scaleControlsRef = useRef(null);
   const wheelAccumulatorRef = useRef(0);
 
-  const openPreview = (imgList, index) => {
-    setPreviewData({ imgList, index });
+  // Ingestion Helper
+  const addImagesToLibrary = useCallback((newPaths) => {
+    setItems(prev => {
+      const existingPaths = prev.map(i => i.path);
+      const newItems = [];
+      const currentAlbumId = activeView.startsWith('album-') ? activeView.replace('album-', '') : null;
+
+      newPaths.forEach(p => {
+        if (!existingPaths.includes(p)) {
+          newItems.push({
+            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+            path: p,
+            addedAt: Date.now(),
+            isPinned: false,
+            isFavorite: false,
+            albumIds: currentAlbumId ? [currentAlbumId] : []
+          });
+        }
+      });
+      return [...newItems, ...prev];
+    });
+  }, [activeView]);
+
+  // Preview Navigation Helpers
+  const openPreview = (itemList, index) => {
+    setPreviewData({ itemList, index });
   };
 
-  const closePreview = () => {
-    setPreviewData(null);
-  };
+  const closePreview = () => setPreviewData(null);
 
   const showNextPreview = () => {
     setPreviewData(prev => {
       if (!prev) return null;
-      return { ...prev, index: (prev.index + 1) % prev.imgList.length };
+      return { ...prev, index: (prev.index + 1) % prev.itemList.length };
     });
   };
 
   const showPrevPreview = () => {
     setPreviewData(prev => {
       if (!prev) return null;
-      return { ...prev, index: (prev.index - 1 + prev.imgList.length) % prev.imgList.length };
+      return { ...prev, index: (prev.index - 1 + prev.itemList.length) % prev.itemList.length };
     });
   };
 
-  // Helper to check duplicates
-  const isDuplicate = (f, currentImages, currentPinned) => currentImages.includes(f) || currentPinned.includes(f);
+  // Sync to LocalStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('purview_gallery_items', JSON.stringify(items));
+    } catch (e) {
+      console.error('Failed to save gallery items', e);
+    }
+  }, [items]);
 
-  // Setup OS file opening IPC callback and global drag prevention
+  useEffect(() => {
+    try {
+      localStorage.setItem('purview_gallery_albums', JSON.stringify(albums));
+    } catch (e) {
+      console.error('Failed to save albums', e);
+    }
+  }, [albums]);
+
+  // IPC Ingestion
   useEffect(() => {
     const preventNav = (e) => e.preventDefault();
     window.addEventListener('dragover', preventNav);
@@ -152,13 +250,9 @@ function App() {
     if (window.electronAPI) {
       cleanup = window.electronAPI.onOpenedFiles((files) => {
         const imageFiles = files.filter(f => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f));
-        setImages(prev => {
-          const newImages = [...prev];
-          imageFiles.forEach(f => {
-            if (!newImages.includes(f) && !pinnedImages.includes(f)) newImages.push(f);
-          });
-          return newImages;
-        });
+        if (imageFiles.length > 0) {
+          addImagesToLibrary(imageFiles);
+        }
       });
     }
 
@@ -167,9 +261,9 @@ function App() {
       window.removeEventListener('drop', preventNav);
       cleanup();
     };
-  }, [pinnedImages]);
+  }, [addImagesToLibrary]);
 
-  // Scroll wheel handler on scale controls to slide/adjust grid columns
+  // Scroll wheel on scale bar
   useEffect(() => {
     const el = scaleControlsRef.current;
     if (!el) return;
@@ -199,17 +293,21 @@ function App() {
     };
   }, []);
 
-  // Keyboard navigation for image preview lightbox
+  // Global Keyboard Shortcuts
   useEffect(() => {
-    if (!previewData) return;
-
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setPreviewData(null);
-      } else if (e.key === 'ArrowRight') {
-        showNextPreview();
-      } else if (e.key === 'ArrowLeft') {
-        showPrevPreview();
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault();
+        setSidebarOpen(prev => !prev);
+      }
+      if (previewData) {
+        if (e.key === 'Escape') {
+          setPreviewData(null);
+        } else if (e.key === 'ArrowRight') {
+          showNextPreview();
+        } else if (e.key === 'ArrowLeft') {
+          showPrevPreview();
+        }
       }
     };
 
@@ -217,154 +315,183 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [previewData]);
 
-  // Window drag handlers (for adding new files)
-  const handleWindowDragOver = (e) => {
-    e.preventDefault();
-  };
-
+  // Window drag handlers
+  const handleWindowDragOver = (e) => e.preventDefault();
   const handleWindowDrop = (e) => {
     e.preventDefault();
-    if (draggingItem !== null) return;
-    
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const droppedFiles = Array.from(e.dataTransfer.files).map(f => f.path);
       const imageFiles = droppedFiles.filter(f => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f));
-      
-      setImages(prev => {
-        const newImages = [...prev];
-        imageFiles.forEach(f => {
-          if (!isDuplicate(f, newImages, pinnedImages)) newImages.push(f);
-        });
-        return newImages;
-      });
+      if (imageFiles.length > 0) {
+        addImagesToLibrary(imageFiles);
+      }
     }
   };
 
-  // Internal Item drag handlers (reordering)
-  const handleItemDragStart = (e, index, type) => {
-    e.stopPropagation();
-    setDraggingItem({ type, index });
-    e.dataTransfer.effectAllowed = "move";
-    setTimeout(() => {
-      e.target.style.opacity = '0.4';
-    }, 0);
+  // Item Action Handlers
+  const togglePin = (id) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, isPinned: !item.isPinned } : item));
   };
 
-  const handleItemDragEnd = (e) => {
-    e.target.style.opacity = '1';
-    setDraggingItem(null);
+  const toggleFavorite = (id) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, isFavorite: !item.isFavorite } : item));
   };
 
-  const handleItemDragOver = (e) => {
+  const toggleAlbumForItem = (itemId, albumId) => {
+    setItems(prev => prev.map(item => {
+      if (item.id !== itemId) return item;
+      const current = item.albumIds || [];
+      const updated = current.includes(albumId) ? current.filter(a => a !== albumId) : [...current, albumId];
+      return { ...item, albumIds: updated };
+    }));
+  };
+
+  const removeItem = (id) => {
+    setItems(prev => prev.filter(item => item.id !== id));
+  };
+
+  // Album Management
+  const handleCreateAlbum = (e) => {
     e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = "move";
+    if (!newAlbumName.trim()) return;
+    const albumId = `album-${Date.now()}`;
+    const newAlbum = { id: albumId, name: newAlbumName.trim() };
+    setAlbums(prev => [...prev, newAlbum]);
+    setNewAlbumName('');
+    setIsCreatingAlbum(false);
+    setActiveView(albumId);
   };
 
-  const handleItemDrop = (e, dropIndex, dropType) => {
-    e.preventDefault();
+  const handleDeleteAlbum = (e, albumId) => {
     e.stopPropagation();
-    if (!draggingItem) return;
-    
-    if (draggingItem.type !== dropType) return;
-    if (draggingItem.index === dropIndex) return;
-
-    if (dropType === 'pinned') {
-      setPinnedImages(prev => {
-        const newArr = [...prev];
-        const [movedItem] = newArr.splice(draggingItem.index, 1);
-        newArr.splice(dropIndex, 0, movedItem);
-        return newArr;
-      });
-    } else {
-      setImages(prev => {
-        const newArr = [...prev];
-        const [movedItem] = newArr.splice(draggingItem.index, 1);
-        newArr.splice(dropIndex, 0, movedItem);
-        return newArr;
-      });
-    }
-    setDraggingItem(null);
-  };
-
-  const handleRemoveImage = (e, indexToRemove, type) => {
-    e.stopPropagation();
-    if (type === 'pinned') {
-      setPinnedImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
-    } else {
-      setImages(prev => prev.filter((_, idx) => idx !== indexToRemove));
+    setAlbums(prev => prev.filter(a => a.id !== albumId));
+    setItems(prev => prev.map(item => ({
+      ...item,
+      albumIds: (item.albumIds || []).filter(a => a !== albumId)
+    })));
+    if (activeView === albumId) {
+      setActiveView('all');
     }
   };
 
-  const togglePin = (e, imgPath, currentType) => {
-    e.stopPropagation();
-    if (currentType === 'unpinned') {
-      setImages(prev => prev.filter(p => p !== imgPath));
-      setPinnedImages(prev => [imgPath, ...prev]);
-    } else {
-      setPinnedImages(prev => prev.filter(p => p !== imgPath));
-      setImages(prev => [imgPath, ...prev]);
+  const handleResetSampleGallery = () => {
+    setItems(INITIAL_ITEMS);
+    setAlbums(DEFAULT_ALBUMS);
+    setActiveView('all');
+  };
+
+  // Filter items for current view
+  const currentViewItems = items.filter(item => {
+    if (activeView === 'all') return true;
+    if (activeView === 'pinned') return item.isPinned;
+    if (activeView === 'favorites') return item.isFavorite;
+    if (activeView.startsWith('album-')) {
+      const albumId = activeView.replace('album-', '');
+      return item.albumIds && item.albumIds.includes(albumId);
     }
-  };
+    return true;
+  });
 
-  const handleLoadSamples = () => {
-    setPinnedImages([SAMPLE_IMAGES[0], SAMPLE_IMAGES[1]]);
-    setImages(SAMPLE_IMAGES.slice(2));
-  };
+  const pinnedItems = currentViewItems.filter(item => item.isPinned);
+  const unpinnedItems = currentViewItems.filter(item => !item.isPinned);
 
-  const renderGrid = (imgList, type) => {
-    if (imgList.length === 0) return null;
+  // Statistics
+  const totalCount = items.length;
+  const pinnedCount = items.filter(i => i.isPinned).length;
+  const favoritesCount = items.filter(i => i.isFavorite).length;
+
+  const currentAlbum = albums.find(a => a.id === activeView);
+  const currentViewTitle = activeView === 'all'
+    ? 'All History'
+    : activeView === 'pinned'
+    ? 'Pinned References'
+    : activeView === 'favorites'
+    ? 'Favorites'
+    : currentAlbum ? currentAlbum.name : 'Gallery';
+
+  // Render Grid Helper
+  const renderGrid = (itemList) => {
+    if (itemList.length === 0) return null;
     return (
       <Masonry
         breakpointCols={columns}
         className="my-masonry-grid"
         columnClassName="my-masonry-grid_column"
       >
-        {imgList.map((img, idx) => (
+        {itemList.map((item, idx) => (
           <div 
-            key={`${img}-${idx}`} 
+            key={item.id} 
             className={`image-card ${isDeleteMode ? 'in-delete-mode' : ''}`}
-            draggable={!isDeleteMode}
-            onDragStart={(e) => !isDeleteMode && handleItemDragStart(e, idx, type)}
-            onDragEnd={!isDeleteMode ? handleItemDragEnd : undefined}
-            onDragOver={!isDeleteMode ? handleItemDragOver : undefined}
-            onDrop={(e) => !isDeleteMode && handleItemDrop(e, idx, type)}
             onClick={() => {
-              if (!isDeleteMode && draggingItem === null) {
-                openPreview(imgList, idx);
+              if (!isDeleteMode && activeAlbumMenuId === null) {
+                openPreview(itemList, idx);
               }
             }}
           >
             {/* Action Bar */}
             <div className="card-actions">
-              <button 
-                type="button"
-                className={`card-btn pin-btn ${type === 'pinned' ? 'pinned' : ''}`}
-                onClick={(e) => togglePin(e, img, type)}
-                title={type === 'pinned' ? "Unpin from top" : "Pin to top"}
-              >
-                <IconPin filled={type === 'pinned'} />
-              </button>
+              <div className="left-actions">
+                <button 
+                  type="button"
+                  className={`card-btn pin-btn ${item.isPinned ? 'pinned' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePin(item.id);
+                  }}
+                  title={item.isPinned ? "Unpin reference" : "Pin reference"}
+                >
+                  <IconPin filled={item.isPinned} />
+                </button>
+
+                <button 
+                  type="button"
+                  className={`card-btn fav-btn ${item.isFavorite ? 'favorited' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFavorite(item.id);
+                  }}
+                  title={item.isFavorite ? "Remove favorite" : "Add to favorites"}
+                >
+                  <IconStar filled={item.isFavorite} />
+                </button>
+              </div>
 
               <div className="right-actions">
+                {/* Album Assignment Tag Button */}
+                <button 
+                  type="button"
+                  className="card-btn album-btn" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveAlbumMenuId(activeAlbumMenuId === item.id ? null : item.id);
+                  }}
+                  title="Assign to Album"
+                >
+                  <IconTag />
+                </button>
+
                 {!isDeleteMode && (
                   <button 
                     type="button"
                     className="card-btn expand-btn" 
                     onClick={(e) => {
                       e.stopPropagation();
-                      openPreview(imgList, idx);
+                      openPreview(itemList, idx);
                     }}
-                    title="Quick preview"
+                    title="Quick preview (Click)"
                   >
                     <IconExpand />
                   </button>
                 )}
+
                 {isDeleteMode && (
                   <button 
                     type="button"
                     className="card-btn delete-btn" 
-                    onClick={(e) => handleRemoveImage(e, idx, type)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeItem(item.id);
+                    }}
                     title="Remove item"
                   >
                     <IconTrash />
@@ -373,8 +500,32 @@ function App() {
               </div>
             </div>
 
+            {/* Album Assignment Popover */}
+            {activeAlbumMenuId === item.id && (
+              <div className="album-popover" onClick={(e) => e.stopPropagation()}>
+                <div className="album-popover-header">Assign to Album</div>
+                {albums.length === 0 ? (
+                  <div className="album-popover-empty">No albums yet</div>
+                ) : (
+                  albums.map(alb => {
+                    const isAssigned = (item.albumIds || []).includes(alb.id);
+                    return (
+                      <div 
+                        key={alb.id} 
+                        className={`album-popover-item ${isAssigned ? 'assigned' : ''}`}
+                        onClick={() => toggleAlbumForItem(item.id, alb.id)}
+                      >
+                        <span className="album-checkbox">{isAssigned ? '✓' : ''}</span>
+                        <span className="album-popover-name">{alb.name}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+
             <div className="img-container">
-              <img src={getImageSrc(img)} alt={`asset-${idx}`} loading="lazy" />
+              <img src={getImageSrc(item.path)} alt="Gallery Item" loading="lazy" />
             </div>
           </div>
         ))}
@@ -382,29 +533,33 @@ function App() {
     );
   };
 
-  const totalItems = images.length + pinnedImages.length;
-
   return (
-    <>
-      {/* Sleek Native MacOS Top Navbar */}
+    <div className="app-root" onClick={() => activeAlbumMenuId && setActiveAlbumMenuId(null)}>
+      {/* Top Navbar */}
       <header className="top-navbar">
-        {/* Left: App Branding & Status */}
+        {/* Left: Sidebar Toggle + Breadcrumb */}
         <div className="navbar-left">
+          <button 
+            type="button"
+            className={`sidebar-toggle-btn ${isSidebarOpen ? 'active' : ''}`}
+            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            title="Toggle Navigation Sidebar (⌘B)"
+          >
+            <IconSidebar />
+          </button>
+
           <div className="brand-group">
-            <span className="brand-icon"><IconAppLogo /></span>
             <span className="brand-name">PURVIEW</span>
+            <span className="breadcrumb-divider">/</span>
+            <span className="breadcrumb-view">{currentViewTitle}</span>
           </div>
-          {totalItems > 0 && (
-            <div className="item-count-badge">
-              <span>{totalItems} {totalItems === 1 ? 'item' : 'items'}</span>
-              {pinnedImages.length > 0 && (
-                <span className="pinned-count-tag">· {pinnedImages.length} pinned</span>
-              )}
-            </div>
-          )}
+
+          <div className="item-count-badge">
+            <span>{currentViewItems.length} {currentViewItems.length === 1 ? 'item' : 'items'}</span>
+          </div>
         </div>
 
-        {/* Right: Scale Controller & Actions */}
+        {/* Right: Scale Stepper & Selection */}
         <div className="controls-bar no-drag" ref={scaleControlsRef}>
           <div className="scale-stepper">
             <button 
@@ -446,81 +601,198 @@ function App() {
           >
             {isDeleteMode ? 'Done' : 'Select'}
           </button>
-
-          {totalItems === 0 && (
-            <button 
-              type="button"
-              className="action-pill-btn accent"
-              onClick={handleLoadSamples}
-            >
-              Load Demo
-            </button>
-          )}
         </div>
       </header>
 
-      {/* Main Workspace Container */}
-      <main 
-        className="app-container" 
-        onDragOver={handleWindowDragOver} 
-        onDrop={handleWindowDrop}
-      >
-        {totalItems === 0 ? (
-          <div className="empty-state-wrapper">
-            <div className="empty-card">
-              <div className="empty-icon-circle">
-                <IconGrid />
-              </div>
-              <h3>Workspace is empty</h3>
-              <p>Drag and drop images onto this window, or right-click image files in Finder and choose <strong>Open With → Purview</strong>.</p>
+      {/* Main Body with Sidebar + Canvas */}
+      <div className="app-body">
+        {/* Navigation Sidebar */}
+        <aside className={`app-sidebar ${isSidebarOpen ? 'open' : 'closed'}`}>
+          <div className="sidebar-section">
+            <div className="sidebar-section-title">LIBRARY</div>
+            <button 
+              type="button"
+              className={`sidebar-nav-item ${activeView === 'all' ? 'active' : ''}`}
+              onClick={() => setActiveView('all')}
+            >
+              <span className="sidebar-nav-icon"><IconClock /></span>
+              <span className="sidebar-nav-label">All History</span>
+              <span className="sidebar-nav-count">{totalCount}</span>
+            </button>
+
+            <button 
+              type="button"
+              className={`sidebar-nav-item ${activeView === 'pinned' ? 'active' : ''}`}
+              onClick={() => setActiveView('pinned')}
+            >
+              <span className="sidebar-nav-icon gold"><IconPin filled /></span>
+              <span className="sidebar-nav-label">Pinned</span>
+              <span className="sidebar-nav-count">{pinnedCount}</span>
+            </button>
+
+            <button 
+              type="button"
+              className={`sidebar-nav-item ${activeView === 'favorites' ? 'active' : ''}`}
+              onClick={() => setActiveView('favorites')}
+            >
+              <span className="sidebar-nav-icon yellow"><IconStar filled /></span>
+              <span className="sidebar-nav-label">Favorites</span>
+              <span className="sidebar-nav-count">{favoritesCount}</span>
+            </button>
+          </div>
+
+          <div className="sidebar-section">
+            <div className="sidebar-section-header">
+              <span className="sidebar-section-title">ALBUMS</span>
               <button 
                 type="button" 
-                className="load-demo-btn" 
-                onClick={handleLoadSamples}
+                className="add-album-btn"
+                onClick={() => setIsCreatingAlbum(true)}
+                title="Create New Album"
               >
-                Load Demo Gallery
+                <IconPlus />
               </button>
             </div>
-          </div>
-        ) : (
-          <div className="grids-container">
-            {pinnedImages.length > 0 && (
-              <section className="section-block pinned-section">
-                <div className="section-header">
-                  <div className="section-title-wrap">
-                    <span className="section-dot pinned"></span>
-                    <span className="section-label">PINNED REFERENCES</span>
-                    <span className="section-pill">{pinnedImages.length}</span>
-                  </div>
-                </div>
-                {renderGrid(pinnedImages, 'pinned')}
-              </section>
+
+            {isCreatingAlbum && (
+              <form className="new-album-form" onSubmit={handleCreateAlbum}>
+                <input 
+                  type="text"
+                  autoFocus
+                  placeholder="Album name..."
+                  value={newAlbumName}
+                  onChange={(e) => setNewAlbumName(e.target.value)}
+                  onBlur={() => !newAlbumName.trim() && setIsCreatingAlbum(false)}
+                />
+              </form>
             )}
 
-            <section className="section-block gallery-section">
-              {pinnedImages.length > 0 && (
-                <div className="section-header">
-                  <div className="section-title-wrap">
-                    <span className="section-dot"></span>
-                    <span className="section-label">ALL ASSETS</span>
-                    <span className="section-pill">{images.length}</span>
+            <div className="albums-list">
+              {albums.map(alb => {
+                const count = items.filter(i => (i.albumIds || []).includes(alb.id)).length;
+                return (
+                  <div 
+                    key={alb.id}
+                    className={`sidebar-nav-item ${activeView === alb.id ? 'active' : ''}`}
+                    onClick={() => setActiveView(alb.id)}
+                  >
+                    <span className="sidebar-nav-icon"><IconFolder /></span>
+                    <span className="sidebar-nav-label">{alb.name}</span>
+                    <span className="sidebar-nav-count">{count}</span>
+                    <button 
+                      type="button"
+                      className="album-delete-btn"
+                      onClick={(e) => handleDeleteAlbum(e, alb.id)}
+                      title="Delete album"
+                    >
+                      <IconClose />
+                    </button>
                   </div>
-                </div>
-              )}
-              {renderGrid(images, 'unpinned')}
-            </section>
+                );
+              })}
+            </div>
           </div>
-        )}
 
-        {/* Professional Lightbox Preview Modal */}
-        {previewData && (
-          <div className="preview-overlay" onClick={closePreview}>
-            <div className="preview-topbar" onClick={(e) => e.stopPropagation()}>
-              <div className="preview-counter-pill">
-                <span>{previewData.index + 1}</span>
-                <span className="slash">/</span>
-                <span>{previewData.imgList.length}</span>
+          <div className="sidebar-footer">
+            <button 
+              type="button" 
+              className="reset-demo-btn"
+              onClick={handleResetSampleGallery}
+              title="Reset sample photography library"
+            >
+              Reload Sample Gallery
+            </button>
+          </div>
+        </aside>
+
+        {/* Gallery Workspace Canvas */}
+        <main 
+          className="app-container" 
+          onDragOver={handleWindowDragOver} 
+          onDrop={handleWindowDrop}
+        >
+          {currentViewItems.length === 0 ? (
+            <div className="empty-state-wrapper">
+              <div className="empty-card">
+                <div className="empty-icon-circle">
+                  <IconGrid />
+                </div>
+                <h3>No images in {currentViewTitle}</h3>
+                <p>Drag and drop images onto this window, or right-click images in Finder to open them in Purview.</p>
+                <button 
+                  type="button" 
+                  className="load-demo-btn" 
+                  onClick={handleResetSampleGallery}
+                >
+                  Load Sample Gallery
+                </button>
               </div>
+            </div>
+          ) : (
+            <div className="grids-container">
+              {/* Show Pinned section when in 'all' view or album views if pinned items exist */}
+              {activeView !== 'pinned' && pinnedItems.length > 0 && (
+                <section className="section-block pinned-section">
+                  <div className="section-header">
+                    <div className="section-title-wrap">
+                      <span className="section-dot pinned"></span>
+                      <span className="section-label">PINNED REFERENCES</span>
+                      <span className="section-pill">{pinnedItems.length}</span>
+                    </div>
+                  </div>
+                  {renderGrid(pinnedItems)}
+                </section>
+              )}
+
+              <section className="section-block gallery-section">
+                {activeView !== 'pinned' && pinnedItems.length > 0 && (
+                  <div className="section-header">
+                    <div className="section-title-wrap">
+                      <span className="section-dot"></span>
+                      <span className="section-label">ALL ASSETS</span>
+                      <span className="section-pill">{unpinnedItems.length}</span>
+                    </div>
+                  </div>
+                )}
+                {renderGrid(activeView === 'pinned' ? pinnedItems : unpinnedItems)}
+              </section>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Studio Lightbox Preview Modal */}
+      {previewData && (
+        <div className="preview-overlay" onClick={closePreview}>
+          <div className="preview-topbar" onClick={(e) => e.stopPropagation()}>
+            <div className="preview-counter-pill">
+              <span>{previewData.index + 1}</span>
+              <span className="slash">/</span>
+              <span>{previewData.itemList.length}</span>
+            </div>
+
+            <div className="preview-top-actions">
+              {/* Star toggle */}
+              <button 
+                type="button"
+                className={`preview-action-btn ${previewData.itemList[previewData.index].isFavorite ? 'favorited' : ''}`}
+                onClick={() => toggleFavorite(previewData.itemList[previewData.index].id)}
+                title="Favorite"
+              >
+                <IconStar filled={previewData.itemList[previewData.index].isFavorite} />
+              </button>
+
+              {/* Pin toggle */}
+              <button 
+                type="button"
+                className={`preview-action-btn ${previewData.itemList[previewData.index].isPinned ? 'pinned' : ''}`}
+                onClick={() => togglePin(previewData.itemList[previewData.index].id)}
+                title="Pin"
+              >
+                <IconPin filled={previewData.itemList[previewData.index].isPinned} />
+              </button>
+
+              {/* Close button */}
               <button 
                 type="button"
                 className="preview-close-btn" 
@@ -530,51 +802,54 @@ function App() {
                 <IconClose />
               </button>
             </div>
+          </div>
 
-            <div className="preview-center" onClick={(e) => e.stopPropagation()}>
-              {previewData.imgList.length > 1 && (
-                <button 
-                  type="button"
-                  className="preview-nav-btn prev" 
-                  onClick={showPrevPreview} 
-                  title="Previous image (←)"
-                >
-                  <IconChevronLeft />
-                </button>
-              )}
+          <div className="preview-center" onClick={(e) => e.stopPropagation()}>
+            {previewData.itemList.length > 1 && (
+              <button 
+                type="button"
+                className="preview-nav-btn prev" 
+                onClick={showPrevPreview} 
+                title="Previous image (←)"
+              >
+                <IconChevronLeft />
+              </button>
+            )}
 
-              <div className="preview-img-frame">
-                <img 
-                  src={getImageSrc(previewData.imgList[previewData.index])} 
-                  alt="Expanded Preview" 
-                  className="preview-img" 
-                />
-              </div>
-
-              {previewData.imgList.length > 1 && (
-                <button 
-                  type="button"
-                  className="preview-nav-btn next" 
-                  onClick={showNextPreview} 
-                  title="Next image (→)"
-                >
-                  <IconChevronRight />
-                </button>
-              )}
+            <div className="preview-img-frame">
+              <img 
+                src={getImageSrc(previewData.itemList[previewData.index].path)} 
+                alt="Expanded Preview" 
+                className="preview-img" 
+              />
             </div>
 
-            <div className="preview-bottom-bar" onClick={(e) => e.stopPropagation()}>
-              <div className="hint-pill">
-                <kbd>←</kbd> <kbd>→</kbd> Navigate
-              </div>
-              <div className="hint-pill">
-                <kbd>Esc</kbd> Dismiss
-              </div>
+            {previewData.itemList.length > 1 && (
+              <button 
+                type="button"
+                className="preview-nav-btn next" 
+                onClick={showNextPreview} 
+                title="Next image (→)"
+              >
+                <IconChevronRight />
+              </button>
+            )}
+          </div>
+
+          <div className="preview-bottom-bar" onClick={(e) => e.stopPropagation()}>
+            <div className="hint-pill">
+              <kbd>←</kbd> <kbd>→</kbd> Navigate
+            </div>
+            <div className="hint-pill">
+              <kbd>Esc</kbd> Dismiss
+            </div>
+            <div className="hint-pill">
+              <kbd>⌘B</kbd> Sidebar
             </div>
           </div>
-        )}
-      </main>
-    </>
+        </div>
+      )}
+    </div>
   );
 }
 
