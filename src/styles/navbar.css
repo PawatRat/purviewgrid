@@ -1,0 +1,244 @@
+/* ==========================================================================
+   Top Navigation Bar
+   ========================================================================== */
+
+.top-navbar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 86px; /* Clearance for native macOS traffic lights */
+  background: var(--bg-toolbar);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 1000;
+  -webkit-app-region: drag;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-toggle-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-std), color var(--t-fast) var(--ease-std), transform var(--t-fast) var(--ease-spring);
+  padding: 0;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
+.sidebar-toggle-btn:active {
+  transform: scale(0.92);
+}
+
+.sidebar-toggle-btn.active {
+  color: var(--text-primary);
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  user-select: none;
+}
+
+/* Brand mark — gradient chip echoing the app icon */
+.brand-group::before {
+  content: '';
+  width: 15px;
+  height: 15px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 55%, #06b6d4 130%);
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
+.brand-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text-primary);
+}
+
+.breadcrumb-divider {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
+.breadcrumb-view {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.item-count-badge {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: var(--r-full);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  -webkit-app-region: no-drag;
+}
+
+/* Scale Stepper & Range Slider */
+.scale-stepper {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  padding: 3px 9px 3px 5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: border-color var(--t-med) var(--ease-std), background var(--t-med) var(--ease-std);
+}
+
+.scale-stepper:hover {
+  border-color: var(--border-medium);
+  background: var(--bg-pill-hover);
+}
+
+.stepper-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-std), color var(--t-fast) var(--ease-std), transform var(--t-fast) var(--ease-spring);
+  padding: 0;
+}
+
+.stepper-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.stepper-btn:active:not(:disabled) {
+  transform: scale(0.88);
+}
+
+.stepper-btn:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+}
+
+.scale-slider-track {
+  display: flex;
+  align-items: center;
+  width: 84px;
+}
+
+.scale-slider-track input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right, rgba(255, 255, 255, 0.75) var(--fill, 27%), rgba(255, 255, 255, 0.14) var(--fill, 27%));
+  outline: none;
+  cursor: ew-resize;
+  margin: 0;
+  transition: background var(--t-fast) linear;
+}
+
+.scale-slider-track input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fafafa;
+  cursor: ew-resize;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(0, 0, 0, 0.3);
+  transition: transform var(--t-fast) var(--ease-spring);
+}
+
+.scale-slider-track input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+}
+
+.scale-slider-track input[type=range]:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.columns-indicator {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  min-width: 36px;
+  text-align: right;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Action Pill Buttons */
+.action-pill-btn {
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-std), border-color var(--t-fast) var(--ease-std), color var(--t-fast) var(--ease-std), transform var(--t-fast) var(--ease-spring);
+  user-select: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.action-pill-btn:hover {
+  background: var(--bg-pill-hover);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
+.action-pill-btn:active {
+  transform: scale(0.95);
+}
+
+.action-pill-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+}
