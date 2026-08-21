@@ -49,6 +49,69 @@
   color: var(--text-tertiary);
 }
 
+/* Center Zoom Controls Pill */
+.preview-zoom-pill {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-full);
+  padding: 3px 6px;
+  user-select: none;
+}
+
+.preview-zoom-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background var(--t-fast) var(--ease-std), color var(--t-fast) var(--ease-std), transform var(--t-fast) var(--ease-spring);
+}
+
+.preview-zoom-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  transform: scale(1.08);
+}
+
+.preview-zoom-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.preview-zoom-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.preview-zoom-level {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 46px;
+  text-align: center;
+  transition: background var(--t-fast) var(--ease-std);
+}
+
+.preview-zoom-level:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .preview-top-actions {
   display: flex;
   align-items: center;
@@ -106,6 +169,7 @@
   width: 100%;
   height: 100%;
   padding: 64px 88px 56px 88px;
+  overflow: hidden;
 }
 
 .preview-img-frame {
@@ -115,7 +179,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: zoom-in;
+  user-select: none;
   animation: frameScaleIn 0.4s var(--ease-spring) backwards;
+}
+
+.preview-img-frame.is-zoomed {
+  cursor: grab;
+}
+
+.preview-img-frame.is-dragging {
+  cursor: grabbing;
 }
 
 .preview-img {
@@ -126,7 +200,8 @@
   box-shadow: var(--shadow-lightbox);
   border: 1px solid rgba(255, 255, 255, 0.07);
   user-select: none;
-  animation: imgSwap 0.28s var(--ease-out) backwards;
+  transform-origin: center center;
+  will-change: transform;
 }
 
 .preview-nav-btn {
