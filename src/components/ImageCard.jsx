@@ -1,10 +1,12 @@
-import { IconPin, IconStar, IconExpand, IconTrash, IconTag } from './icons';
+import { IconPin, IconStar, IconExpand, IconTag, IconCheck } from './icons';
 import { getImageSrc } from '../utils/image';
 
 export default function ImageCard({
   item,
   index,
-  isDeleteMode,
+  isSelectMode,
+  isSelected,
+  onToggleSelect,
   albums,
   isAlbumMenuOpen,
   isAnyAlbumMenuOpen,
@@ -12,66 +14,82 @@ export default function ImageCard({
   onToggleAlbum,
   onOpen,
   onTogglePin,
-  onToggleFavorite,
-  onRemove
+  onToggleFavorite
 }) {
+  const handleCardClick = () => {
+    if (isSelectMode) {
+      onToggleSelect(item.id);
+    } else if (!isAnyAlbumMenuOpen) {
+      onOpen();
+    }
+  };
+
   return (
     <div
-      className={`image-card ${isDeleteMode ? 'in-delete-mode' : ''}`}
-      onClick={() => {
-        if (!isDeleteMode && !isAnyAlbumMenuOpen) {
-          onOpen();
-        }
-      }}
+      className={`image-card ${isSelectMode ? 'in-select-mode' : ''} ${isSelected ? 'is-selected' : ''}`}
+      onClick={handleCardClick}
       style={{ '--stagger': Math.min(index, 24) }}
     >
       <div className="card-inner">
         {/* Subtle contrast gradient on hover */}
         <div className="card-scrim" />
 
-        {/* Action Bar */}
-        <div className="card-actions">
-          <div className="left-actions">
-            <button
-              type="button"
-              className={`card-btn pin-btn ${item.isPinned ? 'pinned' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTogglePin(item.id);
-              }}
-              title={item.isPinned ? "Unpin reference" : "Pin reference"}
-            >
-              <IconPin filled={item.isPinned} />
-            </button>
-
-            <button
-              type="button"
-              className={`card-btn fav-btn ${item.isFavorite ? 'favorited' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(item.id);
-              }}
-              title={item.isFavorite ? "Remove favorite" : "Add to favorites"}
-            >
-              <IconStar filled={item.isFavorite} />
-            </button>
+        {/* Selection Checkbox Badge when in Select Mode */}
+        {isSelectMode && (
+          <div
+            className={`card-select-badge ${isSelected ? 'selected' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect(item.id);
+            }}
+          >
+            {isSelected && <IconCheck size={11} />}
           </div>
+        )}
 
-          <div className="right-actions">
-            {/* Album Assignment Tag Button */}
-            <button
-              type="button"
-              className="card-btn album-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleAlbumMenu(item.id);
-              }}
-              title="Assign to Album"
-            >
-              <IconTag />
-            </button>
+        {/* Action Bar (Only when not in select mode) */}
+        {!isSelectMode && (
+          <div className="card-actions">
+            <div className="left-actions">
+              <button
+                type="button"
+                className={`card-btn pin-btn ${item.isPinned ? 'pinned' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin(item.id);
+                }}
+                title={item.isPinned ? "Unpin reference" : "Pin reference"}
+              >
+                <IconPin filled={item.isPinned} />
+              </button>
 
-            {!isDeleteMode && (
+              <button
+                type="button"
+                className={`card-btn fav-btn ${item.isFavorite ? 'favorited' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavorite(item.id);
+                }}
+                title={item.isFavorite ? "Remove favorite" : "Add to favorites"}
+              >
+                <IconStar filled={item.isFavorite} />
+              </button>
+            </div>
+
+            <div className="right-actions">
+              {/* Album Assignment Tag Button */}
+              <button
+                type="button"
+                className="card-btn album-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleAlbumMenu(item.id);
+                }}
+                title="Assign to Album"
+              >
+                <IconTag />
+              </button>
+
               <button
                 type="button"
                 className="card-btn expand-btn"
@@ -83,23 +101,9 @@ export default function ImageCard({
               >
                 <IconExpand />
               </button>
-            )}
-
-            {isDeleteMode && (
-              <button
-                type="button"
-                className="card-btn delete-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(item.id);
-                }}
-                title="Remove item"
-              >
-                <IconTrash />
-              </button>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Album Assignment Popover */}
         {isAlbumMenuOpen && (

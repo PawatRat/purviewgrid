@@ -5,7 +5,7 @@ import ImageCard from './ImageCard';
  * Pinterest-style masonry grid. Renders nothing for an empty list.
  * All card-level interactions are forwarded through `cardHandlers`.
  */
-export default function MasonryGrid({ columns, items, activeAlbumMenuId, ...cardHandlers }) {
+export default function MasonryGrid({ columns, items, selectedIds, activeAlbumMenuId, ...cardHandlers }) {
   if (items.length === 0) return null;
 
   return (
@@ -19,6 +19,7 @@ export default function MasonryGrid({ columns, items, activeAlbumMenuId, ...card
           key={item.id}
           item={item}
           index={idx}
+          isSelected={selectedIds ? selectedIds.has(item.id) : false}
           isAlbumMenuOpen={activeAlbumMenuId === item.id}
           {...cardHandlers}
           onOpen={() => cardHandlers.onOpen(items, idx)}

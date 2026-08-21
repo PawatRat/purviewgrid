@@ -20,7 +20,8 @@ function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isPinnedExpanded, setPinnedExpanded] = useState(false);
   const [columns, setColumns] = useState(4);
-  const [isDeleteMode, setDeleteMode] = useState(false);
+  const [isSelectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
   const [previewData, setPreviewData] = useState(null); // { itemList, index }
   const [activeAlbumMenuId, setActiveAlbumMenuId] = useState(null); // itemId for album tagging dropdown
 
@@ -108,12 +109,15 @@ function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         setSidebarOpen(prev => !prev);
+      } else if (e.key === 'Escape' && isSelectMode) {
+        setSelectMode(false);
+        setSelectedIds(new Set());
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isSelectMode]);
 
   // Window drag handlers
   const handleWindowDragOver = (e) => e.preventDefault();
@@ -169,7 +173,32 @@ function App() {
 
   const removeItem = (id) => {
     setItems(prev => prev.filter(item => item.id !== id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   };
+
+  // Selection Handlers
+  const toggleSelect = useCallback((id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectMode = useCallback(() => {
+    setSelectMode(prev => {
+      const next = !prev;
+      if (!next) {
+        setSelectedIds(new Set());
+      }
+      return next;
+    });
+  }, []);
 
   const handleToggleAlbumMenu = (itemId) => {
     setActiveAlbumMenuId(prev => (prev === itemId ? null : itemId));
@@ -214,6 +243,23 @@ function App() {
   const pinnedItems = currentViewItems.filter(item => item.isPinned);
   const unpinnedItems = currentViewItems.filter(item => !item.isPinned);
 
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(prev => {
+      const currentIds = currentViewItems.map(i => i.id);
+      if (currentIds.length > 0 && currentIds.every(id => prev.has(id))) {
+        return new Set();
+      }
+      return new Set(currentIds);
+    });
+  }, [currentViewItems]);
+
+  const handleRemoveSelected = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setItems(prev => prev.filter(item => !selectedIds.has(item.id)));
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  }, [selectedIds, setItems]);
+
   // Statistics
   const totalCount = items.length;
   const pinnedCount = items.filter(i => i.isPinned).length;
@@ -228,9 +274,12 @@ function App() {
     ? 'Favorites'
     : currentAlbum ? currentAlbum.name : 'Gallery';
 
+  const isAllSelected = currentViewItems.length > 0 && currentViewItems.every(i => selectedIds.has(i.id));
+
   // Handlers shared by every grid card
   const cardHandlers = {
-    isDeleteMode,
+    isSelectMode,
+    onToggleSelect: toggleSelect,
     albums,
     activeAlbumMenuId,
     isAnyAlbumMenuOpen: activeAlbumMenuId !== null,
@@ -259,8 +308,12 @@ function App() {
         itemCount={currentViewItems.length}
         columns={columns}
         onColumnsChange={setColumns}
-        isDeleteMode={isDeleteMode}
-        onToggleDeleteMode={() => setDeleteMode(prev => !prev)}
+        isSelectMode={isSelectMode}
+        selectedCount={selectedIds.size}
+        isAllSelected={isAllSelected}
+        onSelectAll={handleSelectAll}
+        onRemoveSelected={handleRemoveSelected}
+        onToggleSelectMode={handleToggleSelectMode}
         scaleControlsRef={scaleControlsRef}
       />
 
@@ -321,6 +374,7 @@ function App() {
                     <MasonryGrid
                       columns={columns}
                       items={pinnedItems}
+                      selectedIds={selectedIds}
                       {...cardHandlers}
                     />
                   </section>
@@ -358,6 +412,7 @@ function App() {
                   <MasonryGrid
                     columns={columns}
                     items={activeView === 'pinned' ? pinnedItems : unpinnedItems}
+                    selectedIds={selectedIds}
                     {...cardHandlers}
                   />
                 </section>
