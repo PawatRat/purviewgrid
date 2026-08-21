@@ -146,6 +146,26 @@
   opacity: 0.85;
 }
 
+/* Subtle top gradient scrim on hover to ensure icon contrast */
+.card-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.12) 65%, transparent 100%);
+  border-top-left-radius: var(--r-lg);
+  border-top-right-radius: var(--r-lg);
+  opacity: 0;
+  transition: opacity var(--t-med) var(--ease-std);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.image-card:hover .card-scrim {
+  opacity: 1;
+}
+
 /* Card Context Actions */
 .card-actions {
   position: absolute;
@@ -167,41 +187,42 @@
 .right-actions {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .card-btn {
-  width: 27px;
-  height: 27px;
-  border-radius: 8px;
-  background: rgba(14, 14, 18, 0.62);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  color: #e4e4e7;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  background: rgba(12, 12, 16, 0.6);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   padding: 0;
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   transition:
-    opacity 0.18s var(--ease-out) var(--btn-delay, 0s),
-    transform 0.18s var(--ease-spring) var(--btn-delay, 0s),
+    opacity 0.16s var(--ease-out) var(--btn-delay, 0s),
+    transform 0.16s var(--ease-spring) var(--btn-delay, 0s),
     background var(--t-fast) var(--ease-std),
     border-color var(--t-fast) var(--ease-std),
-    color var(--t-fast) var(--ease-std);
+    color var(--t-fast) var(--ease-std),
+    box-shadow var(--t-fast) var(--ease-std);
 }
 
 /* Micro-stagger the reveal of trailing buttons */
 .left-actions .card-btn:nth-child(2),
 .right-actions .card-btn:nth-child(3) {
-  --btn-delay: 0.035s;
+  --btn-delay: 0.025s;
 }
 .right-actions .card-btn:nth-child(2) {
-  --btn-delay: 0.02s;
+  --btn-delay: 0.015s;
 }
 
 .image-card:hover .card-btn,
@@ -213,40 +234,41 @@
 }
 
 .image-card .card-btn:hover {
-  transform: scale(1.1);
+  transform: translateY(0) scale(1.05);
   background: rgba(26, 26, 32, 0.92);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
 }
 
 .image-card .card-btn:active {
-  transform: scale(0.9);
+  transform: scale(0.94);
 }
 
-/* Pin Button */
+/* Pinned Reference Button — Studio Minimal */
 .pin-btn.pinned {
-  background: var(--pin-soft);
   color: var(--pin);
-  border-color: var(--pin-border);
+  background: rgba(14, 14, 18, 0.65);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .pin-btn.pinned:hover {
-  background: rgba(245, 158, 11, 0.24);
-  color: var(--pin);
-  border-color: var(--pin-border);
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.38);
 }
 
-/* Favorite Star Button */
+/* Favorite Star Button — Studio Minimal */
 .fav-btn.favorited {
-  background: var(--fav-soft);
   color: var(--fav);
-  border-color: var(--fav-border);
+  background: rgba(14, 14, 18, 0.65);
+  border-color: rgba(251, 191, 36, 0.25);
 }
 
 .fav-btn.favorited:hover {
-  background: rgba(234, 179, 8, 0.22);
-  color: var(--fav);
-  border-color: var(--fav-border);
+  color: #fde047;
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(251, 191, 36, 0.38);
 }
 
 /* Album Tag Button & Popover */

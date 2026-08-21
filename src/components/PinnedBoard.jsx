@@ -128,6 +128,9 @@ function PinnedBoard({
               }}
               onClick={() => onOpenPreview(items, idx)}
             >
+              {/* Subtle contrast gradient on hover */}
+              <div className="card-scrim" />
+
               {/* Context Actions */}
               <div className="card-actions">
                 <div className="left-actions">

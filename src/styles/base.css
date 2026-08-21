@@ -31,11 +31,11 @@
   --accent-soft: rgba(99, 102, 241, 0.16);
   --accent-border: rgba(99, 102, 241, 0.45);
   --pin: #f59e0b;
-  --pin-soft: rgba(245, 158, 11, 0.15);
-  --pin-border: rgba(245, 158, 11, 0.4);
-  --fav: #eab308;
-  --fav-soft: rgba(234, 179, 8, 0.14);
-  --fav-border: rgba(234, 179, 8, 0.38);
+  --pin-soft: rgba(245, 158, 11, 0.12);
+  --pin-border: rgba(245, 158, 11, 0.22);
+  --fav: #fbbf24;
+  --fav-soft: rgba(251, 191, 36, 0.12);
+  --fav-border: rgba(251, 191, 36, 0.22);
   --danger: #ef4444;
   --danger-soft: rgba(239, 68, 68, 0.14);
   --danger-border: rgba(239, 68, 68, 0.4);

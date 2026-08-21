@@ -26,6 +26,9 @@ export default function ImageCard({
       style={{ '--stagger': Math.min(index, 24) }}
     >
       <div className="card-inner">
+        {/* Subtle contrast gradient on hover */}
+        <div className="card-scrim" />
+
         {/* Action Bar */}
         <div className="card-actions">
           <div className="left-actions">

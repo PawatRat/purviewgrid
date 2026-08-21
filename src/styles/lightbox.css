@@ -87,14 +87,14 @@
 
 .preview-action-btn.favorited {
   color: var(--fav);
-  background: var(--fav-soft);
-  border-color: var(--fav-border);
+  background: rgba(251, 191, 36, 0.12);
+  border-color: rgba(251, 191, 36, 0.28);
 }
 
 .preview-action-btn.pinned {
   color: var(--pin);
-  background: var(--pin-soft);
-  border-color: var(--pin-border);
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.28);
 }
 
 /* Center Image & Nav */
