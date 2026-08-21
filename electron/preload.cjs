@@ -6,5 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const listener = (event, files) => callback(files);
     ipcRenderer.on('opened-files', listener);
     return () => ipcRenderer.removeListener('opened-files', listener);
-  }
+  },
+  scanPaths: (paths) => ipcRenderer.invoke('scan-paths', paths),
+  openFileDialog: () => ipcRenderer.invoke('open-file-dialog')
 });

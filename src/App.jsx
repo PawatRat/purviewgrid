@@ -103,12 +103,22 @@ function App() {
     };
   }, []);
 
+  // Native Open/Import Dialog Handler
+  const handleImportDialog = useCallback(() => {
+    if (window.electronAPI?.openFileDialog) {
+      window.electronAPI.openFileDialog();
+    }
+  }, []);
+
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         setSidebarOpen(prev => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        handleImportDialog();
       } else if (e.key === 'Escape' && isSelectMode) {
         setSelectMode(false);
         setSelectedIds(new Set());
@@ -117,17 +127,26 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSelectMode]);
+  }, [isSelectMode, handleImportDialog]);
 
-  // Window drag handlers
+  // Window drag handlers (Supports dropping mixed files, single images, or entire nested folders)
   const handleWindowDragOver = (e) => e.preventDefault();
-  const handleWindowDrop = (e) => {
+  const handleWindowDrop = async (e) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const droppedFiles = Array.from(e.dataTransfer.files).map(f => f.path);
-      const imageFiles = droppedFiles.filter(f => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f));
-      if (imageFiles.length > 0) {
-        addImagesToLibrary(imageFiles);
+      const droppedPaths = Array.from(e.dataTransfer.files).map(f => f.path).filter(Boolean);
+      if (droppedPaths.length > 0) {
+        if (window.electronAPI?.scanPaths) {
+          const imageFiles = await window.electronAPI.scanPaths(droppedPaths);
+          if (imageFiles && imageFiles.length > 0) {
+            addImagesToLibrary(imageFiles);
+          }
+        } else {
+          const imageFiles = droppedPaths.filter(f => /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?|ico)$/i.test(f));
+          if (imageFiles.length > 0) {
+            addImagesToLibrary(imageFiles);
+          }
+        }
       }
     }
   };
@@ -330,6 +349,7 @@ function App() {
           items={items}
           onCreateAlbum={handleCreateAlbum}
           onDeleteAlbum={handleDeleteAlbum}
+          onImportImages={handleImportDialog}
         />
 
         {/* Gallery Workspace Canvas or Expanded Pinned Focus Board */}
@@ -349,7 +369,11 @@ function App() {
             onDrop={handleWindowDrop}
           >
             {currentViewItems.length === 0 ? (
-              <EmptyState viewTitle={currentViewTitle} onLoadSample={handleResetSampleGallery} />
+              <EmptyState
+                viewTitle={currentViewTitle}
+                onLoadSample={handleResetSampleGallery}
+                onImportImages={handleImportDialog}
+              />
             ) : (
               <div className="grids-container">
                 {/* Show Pinned section when in 'all' view or album views if pinned items exist */}

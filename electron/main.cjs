@@ -1,11 +1,66 @@
-const { app, BrowserWindow, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 app.setName('Purview');
 app.name = 'Purview';
 
 let mainWindow;
 let initialFiles = [];
+
+const SUPPORTED_IMAGE_EXTENSIONS = new Set([
+  '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif', '.heic', '.heif', '.tiff', '.tif', '.ico'
+]);
+
+function scanPathRecursively(targetPath, results = new Set()) {
+  try {
+    if (!fs.existsSync(targetPath)) return results;
+    const stat = fs.statSync(targetPath);
+    if (stat.isDirectory()) {
+      const entries = fs.readdirSync(targetPath);
+      for (const entry of entries) {
+        if (entry.startsWith('.')) continue; // ignore hidden/system files
+        scanPathRecursively(path.join(targetPath, entry), results);
+      }
+    } else if (stat.isFile()) {
+      const ext = path.extname(targetPath).toLowerCase();
+      if (SUPPORTED_IMAGE_EXTENSIONS.has(ext)) {
+        results.add(targetPath);
+      }
+    }
+  } catch (err) {
+    console.error('Error scanning path:', targetPath, err);
+  }
+  return results;
+}
+
+function resolveImagePaths(inputPaths) {
+  const imageSet = new Set();
+  const pathsArray = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
+  for (const p of pathsArray) {
+    if (typeof p === 'string' && p.trim()) {
+      scanPathRecursively(p, imageSet);
+    }
+  }
+  return Array.from(imageSet);
+}
+
+async function handleOpenDialog() {
+  if (!mainWindow || mainWindow.isDestroyed()) return [];
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Images or Folders to Import',
+    properties: ['openFile', 'openDirectory', 'multiSelections']
+  });
+
+  if (!result.canceled && result.filePaths.length > 0) {
+    const images = resolveImagePaths(result.filePaths);
+    if (images.length > 0) {
+      mainWindow.webContents.send('opened-files', images);
+      return images;
+    }
+  }
+  return [];
+}
 
 function setupMenu() {
   const isMac = process.platform === 'darwin';
@@ -27,6 +82,14 @@ function setupMenu() {
     {
       label: 'File',
       submenu: [
+        {
+          label: 'Import Images or Folders...',
+          accelerator: 'CmdOrCtrl+O',
+          click: () => {
+            handleOpenDialog();
+          }
+        },
+        { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
@@ -77,7 +140,7 @@ function setupMenu() {
 }
 
 function createWindow() {
-  const iconPath = path.join(__dirname, '../public/favicon.svg');
+  const iconPath = path.join(__dirname, '../public/purview-logo-3d-v2.png');
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -123,15 +186,27 @@ function createWindow() {
   });
 }
 
+// IPC Handlers
+ipcMain.handle('scan-paths', async (_event, paths) => {
+  return resolveImagePaths(paths);
+});
+
+ipcMain.handle('open-file-dialog', async () => {
+  return handleOpenDialog();
+});
+
 // macOS 'open-file' event (fired when user right-clicks and opens with app, or drags onto dock icon)
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
+  const images = resolveImagePaths(filePath);
+  if (images.length === 0) return;
+
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
-    mainWindow.webContents.send('opened-files', [filePath]);
+    mainWindow.webContents.send('opened-files', images);
   } else {
-    initialFiles.push(filePath);
+    initialFiles.push(...images);
     if (app.isReady()) {
       createWindow();
     }
@@ -143,10 +218,11 @@ app.whenReady().then(() => {
 
   // Check command line arguments for Windows/Linux (or terminal runs)
   const args = process.argv.slice(1);
-  const fileArgs = args.filter(a => !a.startsWith('--') && path.isAbsolute(a) || path.extname(a) !== '');
+  const fileArgs = args.filter(a => !a.startsWith('--') && (path.isAbsolute(a) || path.extname(a) !== ''));
   
   if (fileArgs.length > 0) {
-    initialFiles.push(...fileArgs);
+    const images = resolveImagePaths(fileArgs);
+    initialFiles.push(...images);
   }
 
   createWindow();
