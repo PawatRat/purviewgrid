@@ -12,7 +12,27 @@ const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif', '.heic', '.heif', '.tiff', '.tif', '.ico'
 ]);
 
-function scanPathRecursively(targetPath, results = new Set()) {
+function getFileCreationTime(filePath) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      if (stat.birthtimeMs && stat.birthtimeMs > 0 && stat.birthtimeMs < Date.now() + 86400000) {
+        return Math.floor(stat.birthtimeMs);
+      }
+      if (stat.mtimeMs && stat.mtimeMs > 0) {
+        return Math.floor(stat.mtimeMs);
+      }
+      if (stat.ctimeMs && stat.ctimeMs > 0) {
+        return Math.floor(stat.ctimeMs);
+      }
+    }
+  } catch (err) {
+    console.error('Error reading file stat:', filePath, err);
+  }
+  return Date.now();
+}
+
+function scanPathRecursively(targetPath, results = new Map()) {
   try {
     if (!fs.existsSync(targetPath)) return results;
     const stat = fs.statSync(targetPath);
@@ -25,7 +45,12 @@ function scanPathRecursively(targetPath, results = new Set()) {
     } else if (stat.isFile()) {
       const ext = path.extname(targetPath).toLowerCase();
       if (SUPPORTED_IMAGE_EXTENSIONS.has(ext)) {
-        results.add(targetPath);
+        if (!results.has(targetPath)) {
+          const createdAt = (stat.birthtimeMs && stat.birthtimeMs > 0 && stat.birthtimeMs < Date.now() + 86400000)
+            ? Math.floor(stat.birthtimeMs)
+            : Math.floor(stat.mtimeMs || Date.now());
+          results.set(targetPath, { path: targetPath, createdAt });
+        }
       }
     }
   } catch (err) {
@@ -34,15 +59,15 @@ function scanPathRecursively(targetPath, results = new Set()) {
   return results;
 }
 
-function resolveImagePaths(inputPaths) {
-  const imageSet = new Set();
+function resolveImageFiles(inputPaths) {
+  const imageMap = new Map();
   const pathsArray = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   for (const p of pathsArray) {
     if (typeof p === 'string' && p.trim()) {
-      scanPathRecursively(p, imageSet);
+      scanPathRecursively(p, imageMap);
     }
   }
-  return Array.from(imageSet);
+  return Array.from(imageMap.values());
 }
 
 async function handleOpenDialog() {
@@ -53,7 +78,7 @@ async function handleOpenDialog() {
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
-    const images = resolveImagePaths(result.filePaths);
+    const images = resolveImageFiles(result.filePaths);
     if (images.length > 0) {
       mainWindow.webContents.send('opened-files', images);
       return images;
@@ -188,7 +213,18 @@ function createWindow() {
 
 // IPC Handlers
 ipcMain.handle('scan-paths', async (_event, paths) => {
-  return resolveImagePaths(paths);
+  return resolveImageFiles(paths);
+});
+
+ipcMain.handle('get-file-stats', async (_event, paths) => {
+  const statsMap = {};
+  if (!Array.isArray(paths)) return statsMap;
+  for (const p of paths) {
+    if (typeof p === 'string') {
+      statsMap[p] = { createdAt: getFileCreationTime(p) };
+    }
+  }
+  return statsMap;
 });
 
 ipcMain.handle('open-file-dialog', async () => {
@@ -198,7 +234,7 @@ ipcMain.handle('open-file-dialog', async () => {
 // macOS 'open-file' event (fired when user right-clicks and opens with app, or drags onto dock icon)
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  const images = resolveImagePaths(filePath);
+  const images = resolveImageFiles(filePath);
   if (images.length === 0) return;
 
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -221,7 +257,7 @@ app.whenReady().then(() => {
   const fileArgs = args.filter(a => !a.startsWith('--') && (path.isAbsolute(a) || path.extname(a) !== ''));
   
   if (fileArgs.length > 0) {
-    const images = resolveImagePaths(fileArgs);
+    const images = resolveImageFiles(fileArgs);
     initialFiles.push(...images);
   }
 

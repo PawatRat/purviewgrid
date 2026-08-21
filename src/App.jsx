@@ -29,27 +29,66 @@ function App() {
   const scaleControlsRef = useRef(null);
   const wheelAccumulatorRef = useRef(0);
 
-  const addImagesToLibrary = useCallback((newPaths) => {
+  const addImagesToLibrary = useCallback((newIncomingItems) => {
     setItems(prev => {
-      const existingPaths = prev.map(i => i.path);
+      const existingPaths = new Set(prev.map(i => i.path));
       const newItems = [];
       const currentAlbumId = activeView.startsWith('album-') ? activeView : null;
 
-      newPaths.forEach(p => {
-        if (!existingPaths.includes(p)) {
+      newIncomingItems.forEach(incoming => {
+        const itemPath = typeof incoming === 'string' ? incoming : incoming.path;
+        const itemCreatedAt = (typeof incoming === 'object' && incoming.createdAt) ? incoming.createdAt : Date.now();
+
+        if (itemPath && !existingPaths.has(itemPath)) {
           newItems.push({
             id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            path: p,
+            path: itemPath,
+            createdAt: itemCreatedAt,
             addedAt: Date.now(),
             isPinned: false,
             isFavorite: false,
             albumIds: currentAlbumId ? [currentAlbumId] : []
           });
+          existingPaths.add(itemPath);
         }
       });
-      return [...newItems, ...prev];
+
+      const combined = [...newItems, ...prev];
+      return combined.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
     });
   }, [activeView, setItems]);
+
+  const hasBackfilledRef = useRef(false);
+
+  // Backfill creation timestamps for existing local items on launch
+  useEffect(() => {
+    if (hasBackfilledRef.current) return;
+    if (window.electronAPI?.getFileStats) {
+      const localPathsNeedingStat = items
+        .filter(i => (!i.createdAt || i.createdAt === i.addedAt) && !i.path.startsWith('http'))
+        .map(i => i.path);
+
+      if (localPathsNeedingStat.length > 0) {
+        hasBackfilledRef.current = true;
+        window.electronAPI.getFileStats(localPathsNeedingStat).then(statsMap => {
+          if (statsMap && Object.keys(statsMap).length > 0) {
+            setItems(prev => {
+              let changed = false;
+              const updated = prev.map(item => {
+                if (statsMap[item.path] && statsMap[item.path].createdAt && statsMap[item.path].createdAt !== item.createdAt) {
+                  changed = true;
+                  return { ...item, createdAt: statsMap[item.path].createdAt };
+                }
+                return item;
+              });
+              if (!changed) return prev;
+              return updated.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
+            });
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [items, setItems]);
 
   // IPC Ingestion
   useEffect(() => {
@@ -60,9 +99,8 @@ function App() {
     let cleanup = () => {};
     if (window.electronAPI) {
       cleanup = window.electronAPI.onOpenedFiles((files) => {
-        const imageFiles = files.filter(f => /\.(png|jpe?g|gif|webp|bmp)$/i.test(f));
-        if (imageFiles.length > 0) {
-          addImagesToLibrary(imageFiles);
+        if (files && files.length > 0) {
+          addImagesToLibrary(files);
         }
       });
     }
@@ -249,16 +287,19 @@ function App() {
     setActiveView('all');
   };
 
-  // Filter items for current view
-  const currentViewItems = items.filter(item => {
-    if (activeView === 'all') return true;
-    if (activeView === 'pinned') return item.isPinned;
-    if (activeView === 'favorites') return item.isFavorite;
-    if (activeView.startsWith('album-')) {
-      return item.albumIds && item.albumIds.includes(activeView);
-    }
-    return true;
-  });
+  // Filter and chronologically sort items for current view by photo creation date
+  const currentViewItems = useMemo(() => {
+    const filtered = items.filter(item => {
+      if (activeView === 'all') return true;
+      if (activeView === 'pinned') return item.isPinned;
+      if (activeView === 'favorites') return item.isFavorite;
+      if (activeView.startsWith('album-')) {
+        return item.albumIds && item.albumIds.includes(activeView);
+      }
+      return true;
+    });
+    return filtered.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
+  }, [items, activeView]);
 
   const pinnedItems = currentViewItems.filter(item => item.isPinned);
   const unpinnedItems = currentViewItems.filter(item => !item.isPinned);

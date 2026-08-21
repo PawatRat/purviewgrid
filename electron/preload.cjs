@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('opened-files', listener);
   },
   scanPaths: (paths) => ipcRenderer.invoke('scan-paths', paths),
+  getFileStats: (paths) => ipcRenderer.invoke('get-file-stats', paths),
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog')
 });

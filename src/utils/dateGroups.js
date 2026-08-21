@@ -4,11 +4,18 @@
 export function groupItemsByDate(items) {
   if (!items || items.length === 0) return [];
 
+  // Sort items chronologically by creation timestamp descending (newest photos first)
+  const sortedItems = [...items].sort((a, b) => {
+    const timeA = a.createdAt || a.addedAt || 0;
+    const timeB = b.createdAt || b.addedAt || 0;
+    return timeB - timeA;
+  });
+
   const groups = [];
   const groupMap = new Map();
 
-  for (const item of items) {
-    const timestamp = item.addedAt || Date.now();
+  for (const item of sortedItems) {
+    const timestamp = item.createdAt || item.addedAt || Date.now();
     const date = new Date(timestamp);
     
     // Group key by YYYY-MM-DD for accurate daily partitioning
