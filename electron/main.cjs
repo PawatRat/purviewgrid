@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 app.setName('Purview');
 app.name = 'Purview';
@@ -32,7 +33,23 @@ function getFileCreationTime(filePath) {
   return Date.now();
 }
 
-function scanPathRecursively(targetPath, results = new Map()) {
+function getFileContentHash(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) return null;
+
+    // Compute exact binary SHA-256 checksum for 100% accurate deduplication
+    const buffer = fs.readFileSync(filePath);
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+    return `${stat.size}_${hash}`;
+  } catch (err) {
+    console.error('Error computing file hash:', filePath, err);
+    return null;
+  }
+}
+
+function scanPathRecursively(targetPath, results = new Map(), seenHashes = new Set()) {
   try {
     if (!fs.existsSync(targetPath)) return results;
     const stat = fs.statSync(targetPath);
@@ -40,16 +57,25 @@ function scanPathRecursively(targetPath, results = new Map()) {
       const entries = fs.readdirSync(targetPath);
       for (const entry of entries) {
         if (entry.startsWith('.')) continue; // ignore hidden/system files
-        scanPathRecursively(path.join(targetPath, entry), results);
+        scanPathRecursively(path.join(targetPath, entry), results, seenHashes);
       }
     } else if (stat.isFile()) {
       const ext = path.extname(targetPath).toLowerCase();
       if (SUPPORTED_IMAGE_EXTENSIONS.has(ext)) {
         if (!results.has(targetPath)) {
+          const hash = getFileContentHash(targetPath);
+          
+          // 100% exact duplicate prevention across different folders
+          if (hash && seenHashes.has(hash)) {
+            return results; // Skip duplicate image
+          }
+          if (hash) seenHashes.add(hash);
+
           const createdAt = (stat.birthtimeMs && stat.birthtimeMs > 0 && stat.birthtimeMs < Date.now() + 86400000)
             ? Math.floor(stat.birthtimeMs)
             : Math.floor(stat.mtimeMs || Date.now());
-          results.set(targetPath, { path: targetPath, createdAt });
+
+          results.set(targetPath, { path: targetPath, createdAt, hash });
         }
       }
     }
@@ -61,10 +87,11 @@ function scanPathRecursively(targetPath, results = new Map()) {
 
 function resolveImageFiles(inputPaths) {
   const imageMap = new Map();
+  const seenHashes = new Set();
   const pathsArray = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   for (const p of pathsArray) {
     if (typeof p === 'string' && p.trim()) {
-      scanPathRecursively(p, imageMap);
+      scanPathRecursively(p, imageMap, seenHashes);
     }
   }
   return Array.from(imageMap.values());
@@ -221,7 +248,10 @@ ipcMain.handle('get-file-stats', async (_event, paths) => {
   if (!Array.isArray(paths)) return statsMap;
   for (const p of paths) {
     if (typeof p === 'string') {
-      statsMap[p] = { createdAt: getFileCreationTime(p) };
+      statsMap[p] = {
+        createdAt: getFileCreationTime(p),
+        hash: getFileContentHash(p)
+      };
     }
   }
   return statsMap;

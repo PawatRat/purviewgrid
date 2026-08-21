@@ -32,25 +32,31 @@ function App() {
   const addImagesToLibrary = useCallback((newIncomingItems) => {
     setItems(prev => {
       const existingPaths = new Set(prev.map(i => i.path));
+      const existingHashes = new Set(prev.map(i => i.hash).filter(Boolean));
       const newItems = [];
       const currentAlbumId = activeView.startsWith('album-') ? activeView : null;
 
       newIncomingItems.forEach(incoming => {
         const itemPath = typeof incoming === 'string' ? incoming : incoming.path;
         const itemCreatedAt = (typeof incoming === 'object' && incoming.createdAt) ? incoming.createdAt : Date.now();
+        const itemHash = (typeof incoming === 'object' && incoming.hash) ? incoming.hash : null;
 
-        if (itemPath && !existingPaths.has(itemPath)) {
-          newItems.push({
-            id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            path: itemPath,
-            createdAt: itemCreatedAt,
-            addedAt: Date.now(),
-            isPinned: false,
-            isFavorite: false,
-            albumIds: currentAlbumId ? [currentAlbumId] : []
-          });
-          existingPaths.add(itemPath);
-        }
+        // 100% exact duplicate prevention (by exact file hash or identical path)
+        if (!itemPath || existingPaths.has(itemPath)) return;
+        if (itemHash && existingHashes.has(itemHash)) return;
+
+        newItems.push({
+          id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          path: itemPath,
+          createdAt: itemCreatedAt,
+          hash: itemHash,
+          addedAt: Date.now(),
+          isPinned: false,
+          isFavorite: false,
+          albumIds: currentAlbumId ? [currentAlbumId] : []
+        });
+        existingPaths.add(itemPath);
+        if (itemHash) existingHashes.add(itemHash);
       });
 
       const combined = [...newItems, ...prev];
@@ -60,12 +66,12 @@ function App() {
 
   const hasBackfilledRef = useRef(false);
 
-  // Backfill creation timestamps for existing local items on launch
+  // Backfill creation timestamps and exact content hashes for existing local items on launch
   useEffect(() => {
     if (hasBackfilledRef.current) return;
     if (window.electronAPI?.getFileStats) {
       const localPathsNeedingStat = items
-        .filter(i => (!i.createdAt || i.createdAt === i.addedAt) && !i.path.startsWith('http'))
+        .filter(i => (!i.createdAt || !i.hash) && !i.path.startsWith('http'))
         .map(i => i.path);
 
       if (localPathsNeedingStat.length > 0) {
@@ -73,15 +79,30 @@ function App() {
         window.electronAPI.getFileStats(localPathsNeedingStat).then(statsMap => {
           if (statsMap && Object.keys(statsMap).length > 0) {
             setItems(prev => {
-              let changed = false;
-              const updated = prev.map(item => {
-                if (statsMap[item.path] && statsMap[item.path].createdAt && statsMap[item.path].createdAt !== item.createdAt) {
-                  changed = true;
-                  return { ...item, createdAt: statsMap[item.path].createdAt };
+              const seenHashes = new Set();
+              const seenPaths = new Set();
+              const updated = [];
+
+              for (const item of prev) {
+                const stat = statsMap[item.path];
+                const hash = stat?.hash || item.hash;
+                const createdAt = stat?.createdAt || item.createdAt;
+
+                // 100% exact duplicate prevention
+                if (hash) {
+                  if (seenHashes.has(hash)) continue; // Skip exact duplicate copy
+                  seenHashes.add(hash);
                 }
-                return item;
-              });
-              if (!changed) return prev;
+                if (seenPaths.has(item.path)) continue;
+                seenPaths.add(item.path);
+
+                updated.push({
+                  ...item,
+                  ...(hash ? { hash } : {}),
+                  ...(createdAt ? { createdAt } : {})
+                });
+              }
+
               return updated.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
             });
           }
@@ -287,7 +308,7 @@ function App() {
     setActiveView('all');
   };
 
-  // Filter and chronologically sort items for current view by photo creation date
+  // Filter and chronologically sort items for current view by photo creation date with 100% exact deduplication
   const currentViewItems = useMemo(() => {
     const filtered = items.filter(item => {
       if (activeView === 'all') return true;
@@ -298,7 +319,18 @@ function App() {
       }
       return true;
     });
-    return filtered.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
+
+    const seen = new Set();
+    const deduplicated = [];
+    for (const item of filtered) {
+      const key = item.hash || item.path;
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(item);
+      }
+    }
+
+    return deduplicated.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
   }, [items, activeView]);
 
   const pinnedItems = currentViewItems.filter(item => item.isPinned);
