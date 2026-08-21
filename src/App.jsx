@@ -242,6 +242,14 @@ function App() {
     onRemove: removeItem
   };
 
+  const handleReorderPinned = useCallback((reorderedPinnedItems) => {
+    setItems(prev => {
+      const pinnedIds = new Set(reorderedPinnedItems.map(i => i.id));
+      const unpinned = prev.filter(i => !pinnedIds.has(i.id));
+      return [...reorderedPinnedItems, ...unpinned];
+    });
+  }, [setItems]);
+
   return (
     <div className="app-root" onClick={() => activeAlbumMenuId && setActiveAlbumMenuId(null)}>
       <TopNavbar
@@ -279,6 +287,7 @@ function App() {
             onToggleFavorite={toggleFavorite}
             onOpenPreview={openPreview}
             onCloseBoard={() => setPinnedExpanded(false)}
+            onReorder={handleReorderPinned}
           />
         ) : (
           <main

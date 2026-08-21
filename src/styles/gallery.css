@@ -234,7 +234,7 @@
 }
 
 .image-card .card-btn:hover {
-  transform: scale(1.2);
+  transform: translateY(0);
   background: transparent;
   color: #ffffff;
   border: none;
@@ -243,7 +243,8 @@
 }
 
 .image-card .card-btn:active {
-  transform: scale(0.92);
+  transform: translateY(0);
+  opacity: 0.7;
 }
 
 /* Pinned Reference Button — Pure Sign Only (No border, No background) */
@@ -256,10 +257,10 @@
 }
 
 .pin-btn.pinned:hover {
-  color: #fbbf24;
+  color: #fef08a;
   background: transparent;
   border: none;
-  transform: scale(1.2);
+  transform: translateY(0);
 }
 
 /* Favorite Star Button — Pure Sign Only (No border, No background) */
@@ -272,10 +273,10 @@
 }
 
 .fav-btn.favorited:hover {
-  color: #fde047;
+  color: #fef08a;
   background: transparent;
   border: none;
-  transform: scale(1.2);
+  transform: translateY(0);
 }
 
 /* Album Tag Button & Popover */
@@ -362,9 +363,9 @@
 
 .image-card .delete-btn:hover {
   background: transparent;
-  color: #f87171;
+  color: #fca5a5;
   border: none;
-  transform: scale(1.2);
+  transform: translateY(0);
 }
 
 /* ==========================================================================

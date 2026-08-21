@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { computeOptimalSinglePanelPacking } from '../utils/packing';
 import { getImageSrc } from '../utils/image';
 import { IconPin, IconStar, IconExpand, IconContract } from './icons';
@@ -9,11 +9,29 @@ function PinnedBoard({
   onTogglePin,
   onToggleFavorite,
   onOpenPreview,
-  onCloseBoard
+  onCloseBoard,
+  onReorder
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [aspectRatios, setAspectRatios] = useState({});
+
+  // Local ordered list of items for fluid live drag-reordering
+  const [prevItems, setPrevItems] = useState(items);
+  const [orderedItems, setOrderedItems] = useState(items);
+  const [draggedId, setDraggedId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+  const wasDraggingRef = useRef(false);
+
+  // Sync ordered items when parent items change without effect
+  if (prevItems !== items) {
+    setPrevItems(items);
+    const incomingMap = new Map(items.map(i => [i.id, i]));
+    const preserved = orderedItems.filter(i => incomingMap.has(i.id)).map(i => incomingMap.get(i.id));
+    const existingSet = new Set(preserved.map(i => i.id));
+    const newlyAdded = items.filter(i => !existingSet.has(i.id));
+    setOrderedItems([...preserved, ...newlyAdded]);
+  }
 
   // Measure container dimensions on resize
   useEffect(() => {
@@ -59,11 +77,11 @@ function PinnedBoard({
 
   // Merge items with their cached aspect ratios
   const itemsWithRatios = useMemo(() => {
-    return items.map(item => ({
+    return orderedItems.map(item => ({
       ...item,
       aspectRatio: aspectRatios[item.id] || item.aspectRatio || 1.333
     }));
-  }, [items, aspectRatios]);
+  }, [orderedItems, aspectRatios]);
 
   // Run the packing algorithm
   const layout = useMemo(() => {
@@ -87,6 +105,51 @@ function PinnedBoard({
     return map;
   }, [layout]);
 
+  // Drag and drop handlers for smart reordering
+  const handleDragStart = (e, item) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', item.id);
+    setDraggedId(item.id);
+    wasDraggingRef.current = true;
+  };
+
+  const handleDragOver = useCallback((e, targetItem) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (!draggedId || draggedId === targetItem.id) return;
+
+    setDragOverId(targetItem.id);
+
+    // Live reorder so user sees the smart packing update in real-time
+    setOrderedItems(prev => {
+      const fromIndex = prev.findIndex(i => i.id === draggedId);
+      const toIndex = prev.findIndex(i => i.id === targetItem.id);
+      if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev;
+
+      const updated = [...prev];
+      const [moved] = updated.splice(fromIndex, 1);
+      updated.splice(toIndex, 0, moved);
+      return updated;
+    });
+  }, [draggedId]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDragOverId(null);
+    if (onReorder) {
+      onReorder(orderedItems);
+    }
+    setTimeout(() => {
+      wasDraggingRef.current = false;
+    }, 80);
+  }, [orderedItems, onReorder]);
+
+  const handleCardClick = (idx) => {
+    if (wasDraggingRef.current) return;
+    onOpenPreview(orderedItems, idx);
+  };
+
   return (
     <div className="pinned-board-container">
       {/* Top Header */}
@@ -94,7 +157,8 @@ function PinnedBoard({
         <div className="pinned-board-title-group">
           <span className="pinned-board-indicator"></span>
           <span className="pinned-board-title">PINNED FOCUS BOARD</span>
-          <span className="pinned-board-counter">{items.length} {items.length === 1 ? 'reference' : 'references'}</span>
+          <span className="pinned-board-counter">{orderedItems.length} {orderedItems.length === 1 ? 'reference' : 'references'}</span>
+          <span className="pinned-board-drag-hint">Drag images to reorder layout</span>
         </div>
 
         <div className="pinned-board-actions">
@@ -112,27 +176,34 @@ function PinnedBoard({
 
       {/* Viewport Canvas with Optimally Packed Cards */}
       <div className="pinned-board-canvas" ref={containerRef}>
-        {items.map((item, idx) => {
+        {orderedItems.map((item, idx) => {
           const pos = positionMap.get(item.id);
           if (!pos) return null;
+
+          const isCurrentlyDragged = draggedId === item.id;
+          const isCurrentlyDragOver = dragOverId === item.id;
 
           return (
             <div
               key={item.id}
-              className="packed-card"
+              className={`packed-card ${isCurrentlyDragged ? 'is-dragging' : ''} ${isCurrentlyDragOver ? 'is-drag-over' : ''}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, item)}
+              onDragOver={(e) => handleDragOver(e, item)}
+              onDragEnd={handleDragEnd}
               style={{
                 left: `${pos.x}px`,
                 top: `${pos.y}px`,
                 width: `${pos.width}px`,
                 height: `${pos.height}px`
               }}
-              onClick={() => onOpenPreview(items, idx)}
+              onClick={() => handleCardClick(idx)}
             >
               {/* Subtle contrast gradient on hover */}
               <div className="card-scrim" />
 
               {/* Context Actions */}
-              <div className="card-actions">
+              <div className="card-actions" draggable={false} onDragStart={(e) => e.stopPropagation()}>
                 <div className="left-actions">
                   <button
                     type="button"
@@ -165,7 +236,7 @@ function PinnedBoard({
                     className="card-btn expand-btn"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onOpenPreview(items, idx);
+                      onOpenPreview(orderedItems, idx);
                     }}
                     title="Fullscreen Lightbox"
                   >
@@ -178,6 +249,7 @@ function PinnedBoard({
               <img
                 src={getImageSrc(item.path)}
                 alt="Pinned Reference"
+                draggable={false}
                 onLoad={(e) => handleImageLoad(item.id, e)}
               />
             </div>
