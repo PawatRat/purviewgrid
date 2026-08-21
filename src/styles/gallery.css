@@ -97,19 +97,19 @@
   z-index: 20;
 }
 
-/* Visual card shell — carries the material, hover state and delete wiggle */
+/* Visual card shell — clean, calm container with no big glowing border shadow */
 .card-inner {
   position: relative;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
-  transition: box-shadow var(--t-med) var(--ease-std), border-color var(--t-med) var(--ease-std);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: border-color var(--t-med) var(--ease-std);
 }
 
 .image-card:hover .card-inner {
-  box-shadow: var(--shadow-card-hover);
-  border-color: var(--border-strong);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .image-card.in-select-mode {
@@ -118,7 +118,7 @@
 
 .image-card.in-select-mode .card-inner {
   cursor: pointer;
-  transition: border-color var(--t-med) var(--ease-std), box-shadow var(--t-med) var(--ease-std);
+  transition: border-color var(--t-med) var(--ease-std);
 }
 
 .image-card.in-select-mode:hover .card-inner {
@@ -127,7 +127,7 @@
 
 .image-card.in-select-mode.is-selected .card-inner {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5), var(--shadow-card-hover);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
 }
 
 .image-card.in-select-mode.is-selected .img-container img {
@@ -183,14 +183,14 @@
   animation: imgFadeIn 0.4s var(--ease-out) backwards;
 }
 
-/* Subtle top gradient scrim on hover to ensure icon contrast */
+/* Top image shadow/scrim on hover to make icons clearly visible */
 .card-scrim {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.12) 65%, transparent 100%);
+  height: 64px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.22) 55%, transparent 100%);
   border-top-left-radius: var(--r-lg);
   border-top-right-radius: var(--r-lg);
   opacity: 0;
