@@ -29,11 +29,18 @@ export const DEFAULT_ALBUMS = [
   { id: 'album-arch', name: 'Architecture' }
 ];
 
-export const INITIAL_ITEMS = SAMPLE_IMAGES.map((path, idx) => ({
-  id: `img-${idx}`,
-  path,
-  addedAt: Date.now() - idx * 3600000,
-  isPinned: idx < 2,
-  isFavorite: idx === 0 || idx === 3 || idx === 6,
-  albumIds: idx % 3 === 0 ? ['album-inspo'] : idx % 3 === 1 ? ['album-arch'] : []
-}));
+export const INITIAL_ITEMS = SAMPLE_IMAGES.map((path, idx) => {
+  // Spread sample items across Today, Yesterday, and past week
+  const daysAgo = Math.floor(idx / 4);
+  const hoursAgo = (idx % 4) * 2;
+  const addedAt = Date.now() - (daysAgo * 86400000 + hoursAgo * 3600000);
+
+  return {
+    id: `img-${idx}`,
+    path,
+    addedAt,
+    isPinned: idx < 2,
+    isFavorite: idx === 0 || idx === 3 || idx === 6,
+    albumIds: idx % 3 === 0 ? ['album-inspo'] : idx % 3 === 1 ? ['album-arch'] : []
+  };
+});

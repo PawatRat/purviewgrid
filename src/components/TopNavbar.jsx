@@ -14,6 +14,7 @@ export default function TopNavbar({
   onSelectAll,
   onRemoveSelected,
   onToggleSelectMode,
+  onImportImages,
   scaleControlsRef
 }) {
   return (
@@ -40,10 +41,20 @@ export default function TopNavbar({
         </div>
       </div>
 
-      {/* Right: Scale Stepper & Selection Actions */}
+      {/* Right: Import + Scale Stepper & Selection Actions */}
       <div className="controls-bar no-drag" ref={scaleControlsRef}>
         {!isSelectMode && (
-          <div className="scale-stepper">
+          <>
+            <button
+              type="button"
+              className="navbar-icon-btn import-btn"
+              onClick={onImportImages}
+              title="Import Images or Folders (⌘O)"
+            >
+              <IconPlus />
+            </button>
+
+            <div className="scale-stepper">
             <button
               type="button"
               className="stepper-btn"
@@ -76,7 +87,8 @@ export default function TopNavbar({
             </button>
             <span className="columns-indicator">{columns} cols</span>
           </div>
-        )}
+        </>
+      )}
 
         {isSelectMode ? (
           <div className="select-mode-actions">

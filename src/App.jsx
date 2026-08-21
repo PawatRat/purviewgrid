@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import TopNavbar from './components/TopNavbar';
 import Sidebar from './components/Sidebar';
 import MasonryGrid from './components/MasonryGrid';
@@ -8,6 +8,7 @@ import PinnedBoard from './components/PinnedBoard';
 import { IconExpand } from './components/icons';
 import { usePersistentState } from './hooks/usePersistentState';
 import { INITIAL_ITEMS, DEFAULT_ALBUMS } from './data/sampleData';
+import { groupItemsByDate } from './utils/dateGroups';
 import './styles/gallery.css';
 
 function App() {
@@ -318,6 +319,11 @@ function App() {
     });
   }, [setItems]);
 
+  const targetGalleryItems = activeView === 'pinned' ? pinnedItems : unpinnedItems;
+  const dateGroups = useMemo(() => {
+    return groupItemsByDate(targetGalleryItems);
+  }, [targetGalleryItems]);
+
   return (
     <div className="app-root" onClick={() => activeAlbumMenuId && setActiveAlbumMenuId(null)}>
       <TopNavbar
@@ -333,6 +339,7 @@ function App() {
         onSelectAll={handleSelectAll}
         onRemoveSelected={handleRemoveSelected}
         onToggleSelectMode={handleToggleSelectMode}
+        onImportImages={handleImportDialog}
         scaleControlsRef={scaleControlsRef}
       />
 
@@ -349,7 +356,6 @@ function App() {
           items={items}
           onCreateAlbum={handleCreateAlbum}
           onDeleteAlbum={handleDeleteAlbum}
-          onImportImages={handleImportDialog}
         />
 
         {/* Gallery Workspace Canvas or Expanded Pinned Focus Board */}
@@ -400,6 +406,10 @@ function App() {
                       items={pinnedItems}
                       selectedIds={selectedIds}
                       {...cardHandlers}
+                      onOpenItem={(item) => {
+                        const idx = currentViewItems.findIndex(i => i.id === item.id);
+                        openPreview(currentViewItems, idx >= 0 ? idx : 0);
+                      }}
                     />
                   </section>
                 )}
@@ -433,12 +443,25 @@ function App() {
                       </div>
                     </div>
                   )}
-                  <MasonryGrid
-                    columns={columns}
-                    items={activeView === 'pinned' ? pinnedItems : unpinnedItems}
-                    selectedIds={selectedIds}
-                    {...cardHandlers}
-                  />
+
+                  {dateGroups.map(group => (
+                    <div key={group.key} className="date-group-block">
+                      <div className="date-group-header">
+                        <span className="date-group-title">{group.label}</span>
+                        <span className="date-group-count">{group.items.length} {group.items.length === 1 ? 'item' : 'items'}</span>
+                      </div>
+                      <MasonryGrid
+                        columns={columns}
+                        items={group.items}
+                        selectedIds={selectedIds}
+                        {...cardHandlers}
+                        onOpenItem={(item) => {
+                          const idx = currentViewItems.findIndex(i => i.id === item.id);
+                          openPreview(currentViewItems, idx >= 0 ? idx : 0);
+                        }}
+                      />
+                    </div>
+                  ))}
                 </section>
               </div>
             )}

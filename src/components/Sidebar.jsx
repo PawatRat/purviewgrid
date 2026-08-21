@@ -12,8 +12,7 @@ export default function Sidebar({
   albums,
   items,
   onCreateAlbum,
-  onDeleteAlbum,
-  onImportImages
+  onDeleteAlbum
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
@@ -59,16 +58,6 @@ export default function Sidebar({
             <span className="sidebar-nav-icon yellow"><IconStar filled /></span>
             <span className="sidebar-nav-label">Favorites</span>
             <span className="sidebar-nav-count">{favoritesCount}</span>
-          </button>
-
-          <button
-            type="button"
-            className="sidebar-import-btn"
-            onClick={onImportImages}
-            title="Import images or entire folders (⌘O)"
-          >
-            <IconPlus />
-            <span>Import Images or Folders</span>
           </button>
         </div>
 

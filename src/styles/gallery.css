@@ -67,6 +67,38 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Date Grouped Sections */
+.date-group-block {
+  margin-bottom: 28px;
+}
+
+.date-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.date-group-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.date-group-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Masonry Grid */
 .my-masonry-grid {
   display: flex;
