@@ -20,10 +20,10 @@
   --border-medium: rgba(255, 255, 255, 0.1);
   --border-strong: rgba(255, 255, 255, 0.16);
 
-  /* Text */
-  --text-primary: #f5f5f7;
-  --text-secondary: #9c9ca5;
-  --text-tertiary: #62626b;
+  /* Text — Studio High-Legibility Dark Theme */
+  --text-primary: #f7f7f9;
+  --text-secondary: #a8a8b4;
+  --text-tertiary: #848492;
 
   /* Accents */
   --accent: #6366f1;
