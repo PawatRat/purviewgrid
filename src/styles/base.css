@@ -4,41 +4,42 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces */
-  --bg-app: #0a0a0c;
-  --bg-sidebar: #0e0e11;
-  --bg-surface: #141417;
-  --bg-card: #16161a;
-  --bg-elevated: #1c1c21;
-  --bg-toolbar: rgba(10, 10, 12, 0.68);
-  --bg-pill: rgba(255, 255, 255, 0.045);
-  --bg-pill-hover: rgba(255, 255, 255, 0.08);
-  --bg-active: rgba(255, 255, 255, 0.09);
+  /* Surfaces — Layered Natural Slate-Zinc Harmony */
+  --bg-app: #0e0f12;          /* Canvas: Rich deep graphite-slate */
+  --bg-sidebar: #131418;      /* Navigation panel: Structural depth */
+  --bg-surface: #18191f;      /* Secondary panels & inputs */
+  --bg-card: #1c1d24;         /* Floating cards & containers */
+  --bg-elevated: #22242c;     /* Elevated popups & dropdowns */
+  --bg-toolbar: rgba(14, 15, 18, 0.82); /* Glass toolbar */
+  --bg-pill: rgba(255, 255, 255, 0.055);
+  --bg-pill-hover: rgba(255, 255, 255, 0.095);
+  --bg-active: rgba(255, 255, 255, 0.12);
 
-  /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.055);
-  --border-medium: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  /* Precise 1px Subtle Borders */
+  --border-subtle: rgba(255, 255, 255, 0.065);
+  --border-medium: rgba(255, 255, 255, 0.11);
+  --border-strong: rgba(255, 255, 255, 0.18);
 
-  /* Text — Studio High-Legibility Dark Theme */
-  --text-primary: #f7f7f9;
-  --text-secondary: #a8a8b4;
-  --text-tertiary: #848492;
+  /* Harmonic Typography Scale (Calibrated White-to-Dark Linear Hierarchy) */
+  --text-primary: #f7f8fa;    /* 100% Crisp White: Big headings, active items, brand */
+  --text-secondary: #cbd2df;  /* 85% Silver-Slate: Nav labels, view titles, pill text */
+  --text-tertiary: #8b92a0;   /* 60% Neutral Muted: Section headers, counts, metadata */
+  --text-muted: #5e6472;      /* 40% Faint: Dividers, subtle indicators */
 
-  /* Accents */
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.16);
-  --accent-border: rgba(99, 102, 241, 0.45);
+  /* Accents — Studio Indigo & Refined Jewels */
+  --accent: #5e6ad2;
+  --accent-hover: #717cf0;
+  --accent-soft: rgba(94, 106, 210, 0.16);
+  --accent-border: rgba(94, 106, 210, 0.45);
   --pin: #f59e0b;
-  --pin-soft: rgba(245, 158, 11, 0.12);
-  --pin-border: rgba(245, 158, 11, 0.22);
+  --pin-soft: rgba(245, 158, 11, 0.14);
+  --pin-border: rgba(245, 158, 11, 0.28);
   --fav: #fbbf24;
-  --fav-soft: rgba(251, 191, 36, 0.12);
-  --fav-border: rgba(251, 191, 36, 0.22);
-  --danger: #ef4444;
-  --danger-soft: rgba(239, 68, 68, 0.14);
-  --danger-border: rgba(239, 68, 68, 0.4);
+  --fav-soft: rgba(251, 191, 36, 0.14);
+  --fav-border: rgba(251, 191, 36, 0.28);
+  --danger: #f43f5e;
+  --danger-soft: rgba(244, 63, 94, 0.14);
+  --danger-border: rgba(244, 63, 94, 0.36);
 
   /* Radii */
   --r-xs: 5px;

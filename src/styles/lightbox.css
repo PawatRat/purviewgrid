@@ -46,7 +46,7 @@
 }
 
 .preview-counter-pill .slash {
-  color: var(--text-tertiary);
+  color: var(--text-muted);
 }
 
 /* Center Zoom Controls Pill */
