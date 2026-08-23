@@ -11,5 +11,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFileStats: (paths) => ipcRenderer.invoke('get-file-stats', paths),
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   showInFolder: (path) => ipcRenderer.invoke('show-in-folder', path),
-  rescanDuplicates: (items) => ipcRenderer.invoke('rescan-duplicates', items)
+  rescanDuplicates: (items) => ipcRenderer.invoke('rescan-duplicates', items),
+  getCharacterIndex: () => ipcRenderer.invoke('get-character-index'),
+  scanCharacters: (items) => ipcRenderer.invoke('scan-characters', items),
+  onCharactersProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on('characters-progress', listener);
+    return () => ipcRenderer.removeListener('characters-progress', listener);
+  }
 });

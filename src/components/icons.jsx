@@ -81,6 +81,21 @@ export const IconGrid = () => (
   </svg>
 );
 
+export const IconBoard = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M9 3v18" />
+    <path d="M9 10h12" />
+  </svg>
+);
+
+export const IconEdit = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
+  </svg>
+);
+
 export const IconClock = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="10" />
@@ -124,6 +139,24 @@ export const IconLayers = ({ size = 14 }) => (
   </svg>
 );
 
+export const IconCharacters = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3" />
+    <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+    <path d="M16 5.4a3 3 0 0 1 0 5.2" />
+    <path d="M17 14a5 5 0 0 1 3.5 5" />
+  </svg>
+);
+
+export const IconRefresh = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 7v5h-5" />
+    <path d="M4 17v-5h5" />
+    <path d="M6.1 9a7 7 0 0 1 11.5-2L20 9" />
+    <path d="M17.9 15a7 7 0 0 1-11.5 2L4 15" />
+  </svg>
+);
+
 export const IconExternal = ({ size = 12 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -131,4 +164,3 @@ export const IconExternal = ({ size = 12 }) => (
     <line x1="10" y1="14" x2="21" y2="3" />
   </svg>
 );
-

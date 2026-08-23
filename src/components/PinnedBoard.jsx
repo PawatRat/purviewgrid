@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { computeOptimalSinglePanelPacking } from '../utils/packing';
 import { getImageSrc } from '../utils/image';
-import { IconPin, IconStar, IconExpand, IconContract } from './icons';
+import { IconPin, IconStar, IconExpand, IconContract, IconClose } from './icons';
 import '../styles/pinnedBoard.css';
 
 function PinnedBoard({
@@ -10,7 +10,11 @@ function PinnedBoard({
   onToggleFavorite,
   onOpenPreview,
   onCloseBoard,
-  onReorder
+  onReorder,
+  title = 'Pinned Focus Board',
+  showHeader = true,
+  isCustomBoard = false,
+  onRemoveItem
 }) {
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
@@ -152,11 +156,10 @@ function PinnedBoard({
 
   return (
     <div className="pinned-board-container">
-      {/* Top Header */}
-      <div className="pinned-board-topbar">
+      {showHeader && <div className="pinned-board-topbar">
         <div className="pinned-board-title-group">
           <span className="pinned-board-indicator"></span>
-          <span className="pinned-board-title">PINNED FOCUS BOARD</span>
+          <span className="pinned-board-title">{title.toUpperCase()}</span>
           <span className="pinned-board-counter">{orderedItems.length} {orderedItems.length === 1 ? 'reference' : 'references'}</span>
           <span className="pinned-board-drag-hint">Drag images to reorder layout</span>
         </div>
@@ -172,7 +175,7 @@ function PinnedBoard({
             <span>Collapse Board</span>
           </button>
         </div>
-      </div>
+      </div>}
 
       {/* Viewport Canvas with Optimally Packed Cards */}
       <div className="pinned-board-canvas" ref={containerRef}>
@@ -210,11 +213,12 @@ function PinnedBoard({
                     className="card-btn pin-btn pinned"
                     onClick={(e) => {
                       e.stopPropagation();
-                      onTogglePin(item.id);
+                      if (isCustomBoard) onRemoveItem(item.id);
+                      else onTogglePin(item.id);
                     }}
-                    title="Unpin from board"
+                    title={isCustomBoard ? 'Remove from board' : 'Unpin from board'}
                   >
-                    <IconPin filled={true} />
+                    {isCustomBoard ? <IconClose /> : <IconPin filled={true} />}
                   </button>
 
                   <button
@@ -255,9 +259,19 @@ function PinnedBoard({
             </div>
           );
         })}
+        {orderedItems.length === 0 && (
+          <div className="pinned-board-empty">
+            <IconBoardEmpty />
+            <span>Add images from any Library view using the board button.</span>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function IconBoardEmpty() {
+  return <span className="pinned-board-empty-mark">+</span>;
 }
 
 export default PinnedBoard;

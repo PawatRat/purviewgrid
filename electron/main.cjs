@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog, shell, utilityProcess } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -9,6 +9,8 @@ app.name = 'Purview';
 
 let mainWindow;
 let initialFiles = [];
+let characterScanPromise = null;
+const CHARACTER_MODEL_VERSION = 'yunet-2023mar+ccip-caformer24+sface-linked-families-v7';
 
 const SUPPORTED_IMAGE_EXTENSIONS = new Set([
   '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif', '.heic', '.heif', '.tiff', '.tif', '.ico'
@@ -123,6 +125,78 @@ async function handleOpenDialog() {
     }
   }
   return [];
+}
+
+function getCharacterModelsPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'models', 'characters')
+    : path.join(__dirname, '..', 'models', 'characters');
+}
+
+function getCachedCharacterData() {
+  try {
+    const index = JSON.parse(fs.readFileSync(path.join(app.getPath('userData'), 'characters-index.json'), 'utf8'));
+    if (index.modelVersion !== CHARACTER_MODEL_VERSION) {
+      return { status: 'idle', groups: [], sections: [], scannedImageCount: 0, detectedFaceCount: 0 };
+    }
+    const imageEntries = Object.values(index.images || {});
+    return {
+      status: 'ready',
+      updatedAt: index.updatedAt,
+      scannedImageCount: imageEntries.length,
+      detectedFaceCount: imageEntries.reduce((count, entry) => count + (entry.faces?.length || 0), 0),
+      groups: Array.isArray(index.groups) ? index.groups : [],
+      sections: Array.isArray(index.sections) ? index.sections : []
+    };
+  } catch {
+    return { status: 'idle', groups: [], sections: [], scannedImageCount: 0, detectedFaceCount: 0 };
+  }
+}
+
+function scanCharacters(items) {
+  if (characterScanPromise) return characterScanPromise;
+
+  characterScanPromise = new Promise((resolve, reject) => {
+    const worker = utilityProcess.fork(path.join(__dirname, 'character-worker.cjs'), [], {
+      serviceName: 'Purview Character Analysis',
+      stdio: 'ignore'
+    });
+    let settled = false;
+
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+      worker.kill();
+    };
+
+    worker.on('message', message => {
+      if (message?.type === 'progress') {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('characters-progress', message.progress);
+        }
+      } else if (message?.type === 'complete') {
+        finish(resolve, message.result);
+      } else if (message?.type === 'error') {
+        finish(reject, new Error(message.error || 'Character analysis failed'));
+      }
+    });
+
+    worker.on('exit', code => {
+      if (!settled) finish(reject, new Error(`Character analysis stopped unexpectedly (${code})`));
+    });
+
+    worker.postMessage({
+      items,
+      modelsPath: getCharacterModelsPath(),
+      indexPath: path.join(app.getPath('userData'), 'characters-index.json'),
+      thumbnailsPath: path.join(app.getPath('userData'), 'character-thumbnails')
+    });
+  }).finally(() => {
+    characterScanPromise = null;
+  });
+
+  return characterScanPromise;
 }
 
 function setupMenu() {
@@ -289,6 +363,7 @@ ipcMain.handle('rescan-duplicates', async (_event, existingItems) => {
 
   if (localPaths.length === 0) return {};
 
+  const rootDirs = new Set();
   const homeDir = os.homedir();
   for (const p of localPaths) {
     let dir = path.dirname(p);
@@ -318,6 +393,13 @@ ipcMain.handle('rescan-duplicates', async (_event, existingItems) => {
 
   return duplicateMap;
 });
+
+ipcMain.handle('scan-characters', async (_event, items) => {
+  if (!Array.isArray(items)) return { status: 'ready', groups: [], sections: [], scannedImageCount: 0, detectedFaceCount: 0 };
+  return scanCharacters(items);
+});
+
+ipcMain.handle('get-character-index', async () => getCachedCharacterData());
 
 // macOS 'open-file' event (fired when user right-clicks and opens with app, or drags onto dock icon)
 app.on('open-file', (event, filePath) => {

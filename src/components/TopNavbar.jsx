@@ -1,13 +1,15 @@
-import { IconSidebar, IconMinus, IconPlus, IconTrash } from './icons';
+import { IconChevronLeft, IconSidebar, IconMinus, IconPlus, IconRefresh, IconTrash } from './icons';
 import '../styles/navbar.css';
 
 export default function TopNavbar({
   isSidebarOpen,
   onToggleSidebar,
   activeView,
-  onSelectView,
   viewTitle,
   itemCount,
+  itemNoun: itemNounOverride,
+  backLabel,
+  onBack,
   columns,
   onColumnsChange,
   isSelectMode,
@@ -17,9 +19,22 @@ export default function TopNavbar({
   onRemoveSelected,
   onToggleSelectMode,
   onImportImages,
+  isCharacterOrganizing,
+  onCharacterOrganizingChange,
+  isCharacterScanning,
+  hasCharacterManualSections,
+  onResetCharacters,
+  onScanCharacters,
+  localCharacterImageCount,
+  isCharacterDetail,
   scaleControlsRef
 }) {
-  const isInsideAlbum = activeView && activeView.startsWith('album-');
+  const isDuplicatesView = activeView === 'duplicates';
+  const isCharactersView = activeView === 'characters';
+  const isAlbumsOverview = activeView === 'albums';
+  const isBoardsView = activeView === 'boards' || activeView.startsWith('board-');
+  const isBoardsOverview = activeView === 'boards';
+  const itemNoun = itemNounOverride || (isDuplicatesView ? 'group' : isCharactersView ? 'section' : isAlbumsOverview ? 'album' : isBoardsOverview ? 'board' : 'item');
 
   return (
     <header className="top-navbar">
@@ -34,27 +49,22 @@ export default function TopNavbar({
           <IconSidebar />
         </button>
 
-        <div className="brand-group">
-          <span className="brand-name">PURVIEW</span>
-          <span className="breadcrumb-divider">/</span>
-          {isInsideAlbum && (
-            <>
-              <button
-                type="button"
-                className="breadcrumb-link-btn"
-                onClick={() => onSelectView('albums')}
-                title="Back to Albums Overview"
-              >
-                Albums
-              </button>
-              <span className="breadcrumb-divider">/</span>
-            </>
-          )}
-          <span className="breadcrumb-view">{viewTitle}</span>
-        </div>
+        {onBack && (
+          <button type="button" className="navbar-back-btn" onClick={onBack} title={backLabel} aria-label={backLabel}>
+            <IconChevronLeft />
+          </button>
+        )}
 
-        <div className="item-count-badge">
-          <span>{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
+        <div className="navbar-context-row">
+          <div className="brand-group">
+            <span className="brand-name">PURVIEW</span>
+            <span className="breadcrumb-divider">/</span>
+            <span className="breadcrumb-view">{viewTitle}</span>
+          </div>
+
+          <div className="item-count-badge">
+            <span>{itemCount} {itemCount === 1 ? itemNoun : `${itemNoun}s`}</span>
+          </div>
         </div>
       </div>
 
@@ -62,16 +72,16 @@ export default function TopNavbar({
       <div className="controls-bar no-drag" ref={scaleControlsRef}>
         {!isSelectMode && (
           <>
-            <button
+            {!isCharactersView && <button
               type="button"
               className="navbar-icon-btn import-btn"
               onClick={onImportImages}
               title="Import Images or Folders (⌘O)"
             >
               <IconPlus />
-            </button>
+            </button>}
 
-            <div className="scale-stepper">
+            {!isCharactersView && !isAlbumsOverview && !isBoardsView && <div className="scale-stepper">
             <button
               type="button"
               className="stepper-btn"
@@ -103,11 +113,29 @@ export default function TopNavbar({
               <IconPlus />
             </button>
             <span className="columns-indicator">{columns} cols</span>
-          </div>
+          </div>}
         </>
       )}
 
-        {isSelectMode ? (
+        {isCharactersView && !isCharacterDetail && !isSelectMode && (
+          <div className="navbar-context-actions">
+            {isCharacterOrganizing ? (
+              <>
+                {hasCharacterManualSections && <button type="button" className="navbar-context-action is-quiet" onClick={onResetCharacters}>Reset automatic</button>}
+                <button type="button" className="navbar-context-action is-active" onClick={() => onCharacterOrganizingChange(false)}>Done</button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="navbar-context-action" onClick={() => onCharacterOrganizingChange(true)} disabled={isCharacterScanning || itemCount === 0}>Organize</button>
+                <button type="button" className="navbar-context-action" onClick={onScanCharacters} disabled={isCharacterScanning || localCharacterImageCount === 0}>
+                  <IconRefresh /><span>{isCharacterScanning ? 'Analyzing' : 'Scan Library'}</span>
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {!isDuplicatesView && !isCharactersView && !isAlbumsOverview && !isBoardsView && (isSelectMode ? (
           <div className="select-mode-actions">
             <button
               type="button"
@@ -146,7 +174,7 @@ export default function TopNavbar({
           >
             Select
           </button>
-        )}
+        ))}
       </div>
     </header>
   );

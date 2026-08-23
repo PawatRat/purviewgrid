@@ -1,0 +1,229 @@
+.boards-overview-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 18px 24px 60px;
+}
+
+.boards-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 30px 24px;
+}
+
+.board-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.board-cover,
+.create-board-card-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  transition: border-color var(--t-fast) var(--ease-std), background var(--t-fast) var(--ease-std);
+}
+
+.board-card-item:hover .board-cover {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--bg-card);
+}
+
+.board-cover-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-columns: 1.55fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  background: var(--bg-app);
+}
+
+.board-cover-cell {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.board-cover-cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.board-cover-grid .cell-1 {
+  grid-row: 1 / 3;
+}
+
+.board-cover-grid.preview-count-1 {
+  display: block;
+}
+
+.board-cover-grid.preview-count-2 {
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr;
+}
+
+.board-cover-grid.preview-count-2 .cell-1 {
+  grid-row: auto;
+}
+
+.board-cover-grid.preview-count-4 {
+  grid-template-columns: 1.35fr 1fr 1fr;
+}
+
+.board-cover-grid.preview-count-4 .cell-4 {
+  grid-column: 2 / 4;
+}
+
+.board-cover-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.board-expand-label {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--r-sm);
+  background: rgba(9, 9, 11, 0.78);
+  color: var(--text-primary);
+  font-size: 10.5px;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-std);
+}
+
+.board-card-item:hover .board-expand-label {
+  opacity: 1;
+}
+
+.board-card-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+
+.board-card-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.board-card-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-card-count {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+
+.board-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-std);
+}
+
+.board-card-item:hover .board-card-actions {
+  opacity: 1;
+}
+
+.board-card-action {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.board-card-action:hover {
+  color: var(--text-primary);
+}
+
+.board-card-action.is-danger:hover {
+  color: var(--danger);
+}
+
+.board-name-input,
+.create-board-inline-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-xs);
+  outline: 0;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.board-name-input {
+  height: 23px;
+  padding: 2px 6px;
+  font-size: 12.5px;
+}
+
+.create-board-card-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  border-color: var(--border-medium);
+  background: var(--bg-pill);
+  color: var(--text-tertiary);
+}
+
+.board-card-item:hover .create-board-card-stage {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
+.create-board-input-wrap {
+  width: 100%;
+  padding: 0 16px;
+}
+
+.create-board-inline-input {
+  padding: 7px 10px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.board-card-meta.is-placeholder {
+  visibility: hidden;
+}

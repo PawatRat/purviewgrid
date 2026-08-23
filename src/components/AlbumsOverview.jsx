@@ -26,13 +26,6 @@ export default function AlbumsOverview({
 
   return (
     <div className="albums-overview-container">
-      <div className="albums-overview-header">
-        <div className="albums-overview-title-group">
-          <span className="albums-overview-title">ALBUMS</span>
-          <span className="albums-overview-badge">{albums.length} {albums.length === 1 ? 'album' : 'albums'}</span>
-        </div>
-      </div>
-
       <div className="albums-overview-grid">
         {albums.map((album) => {
           const albumImages = items.filter(i => (i.albumIds || []).includes(album.id));

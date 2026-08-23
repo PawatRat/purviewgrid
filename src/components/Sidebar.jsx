@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconClock, IconPin, IconStar, IconFolder, IconGrid, IconLayers, IconPlus, IconClose } from './icons';
+import { IconBoard, IconClock, IconPin, IconStar, IconFolder, IconGrid, IconLayers, IconCharacters, IconPlus, IconClose } from './icons';
 import '../styles/sidebar.css';
 
 export default function Sidebar({
@@ -9,7 +9,9 @@ export default function Sidebar({
   totalCount,
   pinnedCount,
   favoritesCount,
+  boardsCount = 0,
   duplicatesCount = 0,
+  charactersCount = 0,
   albums,
   items,
   onCreateAlbum,
@@ -60,6 +62,16 @@ export default function Sidebar({
             <span className="sidebar-nav-label">Favorites</span>
             <span className="sidebar-nav-count">{favoritesCount}</span>
           </button>
+
+          <button
+            type="button"
+            className={`sidebar-nav-item ${activeView === 'boards' || activeView.startsWith('board-') ? 'active' : ''}`}
+            onClick={() => onSelectView('boards')}
+          >
+            <span className="sidebar-nav-icon"><IconBoard /></span>
+            <span className="sidebar-nav-label">Boards</span>
+            <span className="sidebar-nav-count">{boardsCount}</span>
+          </button>
         </div>
 
         <div className="sidebar-section">
@@ -72,6 +84,15 @@ export default function Sidebar({
             <span className="sidebar-nav-icon"><IconLayers /></span>
             <span className="sidebar-nav-label">Duplicates</span>
             <span className="sidebar-nav-count">{duplicatesCount}</span>
+          </button>
+          <button
+            type="button"
+            className={`sidebar-nav-item ${activeView === 'characters' ? 'active' : ''}`}
+            onClick={() => onSelectView('characters')}
+          >
+            <span className="sidebar-nav-icon"><IconCharacters /></span>
+            <span className="sidebar-nav-label">Characters</span>
+            <span className="sidebar-nav-count">{charactersCount}</span>
           </button>
         </div>
 

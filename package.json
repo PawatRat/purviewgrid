@@ -13,9 +13,11 @@
     "build:electron": "electron-builder"
   },
   "dependencies": {
+    "onnxruntime-node": "^1.27.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-masonry-css": "^1.0.16"
+    "react-masonry-css": "^1.0.16",
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
@@ -24,14 +26,14 @@
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
+    "electron": "^41.2.0",
     "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "vite": "^8.0.4",
-    "wait-on": "^9.0.4",
-    "electron": "^41.2.0"
+    "wait-on": "^9.0.4"
   },
   "main": "electron/main.cjs",
   "build": {
@@ -67,6 +69,12 @@
       "dist/**/*",
       "electron/**/*",
       "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models"
+      }
     ]
   },
   "author": "Purview",

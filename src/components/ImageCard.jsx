@@ -1,4 +1,4 @@
-import { IconPin, IconStar, IconExpand, IconTag, IconCheck } from './icons';
+import { IconBoard, IconPin, IconStar, IconExpand, IconTag, IconCheck } from './icons';
 import { getImageSrc } from '../utils/image';
 
 export default function ImageCard({
@@ -8,13 +8,18 @@ export default function ImageCard({
   isSelected,
   onToggleSelect,
   albums,
+  boards,
   isAlbumMenuOpen,
+  isBoardMenuOpen,
   isAnyAlbumMenuOpen,
   onToggleAlbumMenu,
   onToggleAlbum,
+  onToggleBoardMenu,
+  onToggleBoard,
   onOpen,
   onTogglePin,
-  onToggleFavorite
+  onToggleFavorite,
+  overlay
 }) {
   const handleCardClick = () => {
     if (isSelectMode) {
@@ -77,7 +82,18 @@ export default function ImageCard({
             </div>
 
             <div className="right-actions">
-              {/* Album Assignment Tag Button */}
+              <button
+                type="button"
+                className={`card-btn board-btn ${(boards || []).some(board => board.itemIds.includes(item.id)) ? 'assigned' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleBoardMenu(item.id);
+                }}
+                title="Add to Board"
+              >
+                <IconBoard size={12} />
+              </button>
+
               <button
                 type="button"
                 className="card-btn album-btn"
@@ -105,6 +121,32 @@ export default function ImageCard({
           </div>
         )}
 
+        {isBoardMenuOpen && (
+          <div className="album-popover board-popover" onClick={(e) => e.stopPropagation()}>
+            <div className="album-popover-header">Add to Board</div>
+            {boards.length === 0 ? (
+              <div className="album-popover-empty">Create a board from the Boards tab first</div>
+            ) : (
+              boards.map(board => {
+                const isAssigned = board.itemIds.includes(item.id);
+                return (
+                  <div
+                    key={board.id}
+                    className={`album-popover-item ${isAssigned ? 'assigned' : ''}`}
+                    onClick={() => {
+                      onToggleBoard(item.id, board.id);
+                      onToggleBoardMenu(item.id);
+                    }}
+                  >
+                    <span className="album-checkbox">{isAssigned ? '✓' : ''}</span>
+                    <span className="album-popover-name">{board.name}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
         {/* Album Assignment Popover */}
         {isAlbumMenuOpen && (
           <div className="album-popover" onClick={(e) => e.stopPropagation()}>
@@ -118,7 +160,10 @@ export default function ImageCard({
                   <div
                     key={alb.id}
                     className={`album-popover-item ${isAssigned ? 'assigned' : ''}`}
-                    onClick={() => onToggleAlbum(item.id, alb.id)}
+                    onClick={() => {
+                      onToggleAlbum(item.id, alb.id);
+                      onToggleAlbumMenu(item.id);
+                    }}
                   >
                     <span className="album-checkbox">{isAssigned ? '✓' : ''}</span>
                     <span className="album-popover-name">{alb.name}</span>
@@ -128,6 +173,8 @@ export default function ImageCard({
             )}
           </div>
         )}
+
+        {overlay}
 
         <div className="img-container">
           <img src={getImageSrc(item.path)} alt="Gallery Item" loading="lazy" draggable="false" />

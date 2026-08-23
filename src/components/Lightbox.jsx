@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
+  IconBoard,
   IconStar,
   IconPin,
+  IconTag,
   IconClose,
   IconChevronLeft,
   IconChevronRight,
@@ -22,7 +24,11 @@ export default function Lightbox({
   onNext,
   onPrev,
   onToggleFavorite,
-  onTogglePin
+  onTogglePin,
+  albums = [],
+  boards = [],
+  onToggleAlbum,
+  onToggleBoard
 }) {
   const item = itemList[index];
 
@@ -30,6 +36,7 @@ export default function Lightbox({
   const [scale, setScale] = useState(1);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const [assignmentMenu, setAssignmentMenu] = useState(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const frameRef = useRef(null);
 
@@ -40,6 +47,7 @@ export default function Lightbox({
     setScale(1);
     setTranslate({ x: 0, y: 0 });
     setIsDragging(false);
+    setAssignmentMenu(null);
   }
 
   const resetZoom = useCallback(() => {
@@ -209,7 +217,8 @@ export default function Lightbox({
             type="button"
             className={`preview-action-btn ${item.isFavorite ? 'favorited' : ''}`}
             onClick={() => onToggleFavorite(item.id)}
-            title="Favorite"
+            title={item.isFavorite ? 'Remove favorite' : 'Add to favorites'}
+            aria-pressed={item.isFavorite}
           >
             <IconStar filled={item.isFavorite} />
           </button>
@@ -219,10 +228,77 @@ export default function Lightbox({
             type="button"
             className={`preview-action-btn ${item.isPinned ? 'pinned' : ''}`}
             onClick={() => onTogglePin(item.id)}
-            title="Pin"
+            title={item.isPinned ? 'Unpin reference' : 'Pin reference'}
+            aria-pressed={item.isPinned}
           >
             <IconPin filled={item.isPinned} />
           </button>
+
+          <div className="preview-assign-wrap">
+            <button
+              type="button"
+              className={`preview-action-btn ${boards.some(board => board.itemIds.includes(item.id)) ? 'assigned' : ''}`}
+              onClick={() => setAssignmentMenu(current => current === 'boards' ? null : 'boards')}
+              title="Add to Board"
+            >
+              <IconBoard />
+            </button>
+            {assignmentMenu === 'boards' && (
+              <div className="preview-action-popover">
+                <div className="album-popover-header">Add to Board</div>
+                {boards.length === 0 ? <div className="album-popover-empty">No boards yet</div> : boards.map(board => {
+                  const isAssigned = board.itemIds.includes(item.id);
+                  return (
+                    <button
+                      key={board.id}
+                      type="button"
+                      className={`preview-assign-row ${isAssigned ? 'assigned' : ''}`}
+                      onClick={() => {
+                        onToggleBoard?.(item.id, board.id);
+                        setAssignmentMenu(null);
+                      }}
+                    >
+                      <span className="album-checkbox">{isAssigned ? '✓' : ''}</span>
+                      <span className="album-popover-name">{board.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="preview-assign-wrap">
+            <button
+              type="button"
+              className={`preview-action-btn ${(item.albumIds || []).length > 0 ? 'assigned' : ''}`}
+              onClick={() => setAssignmentMenu(current => current === 'albums' ? null : 'albums')}
+              title="Assign to Album"
+            >
+              <IconTag />
+            </button>
+            {assignmentMenu === 'albums' && (
+              <div className="preview-action-popover">
+                <div className="album-popover-header">Assign to Album</div>
+                {albums.length === 0 ? <div className="album-popover-empty">No albums yet</div> : albums.map(album => {
+                  const isAssigned = (item.albumIds || []).includes(album.id);
+                  return (
+                    <button
+                      key={album.id}
+                      type="button"
+                      className={`preview-assign-row ${isAssigned ? 'assigned' : ''}`}
+                      onClick={() => {
+                        onToggleAlbum?.(item.id, album.id);
+                        setAssignmentMenu(null);
+                      }}
+                    >
+                      <span className="album-checkbox">{isAssigned ? '✓' : ''}</span>
+                      <span className="album-popover-name">{album.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Close button */}
           <button

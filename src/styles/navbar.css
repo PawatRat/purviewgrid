@@ -28,6 +28,37 @@
   -webkit-app-region: no-drag;
 }
 
+.navbar-context-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.navbar-back-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  margin-left: -5px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-pill);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-std), border-color var(--t-fast) var(--ease-std), color var(--t-fast) var(--ease-std);
+}
+
+.navbar-back-btn svg { width: 15px; height: 15px; }
+
+.navbar-back-btn:hover {
+  border-color: var(--border-medium);
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
 .sidebar-toggle-btn {
   background: transparent;
   border: 1px solid transparent;
@@ -117,6 +148,52 @@
   align-items: center;
   gap: 10px;
   -webkit-app-region: no-drag;
+}
+
+.navbar-context-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.navbar-context-action {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-sm);
+  background: var(--bg-pill);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background var(--t-fast) var(--ease-std), border-color var(--t-fast) var(--ease-std), color var(--t-fast) var(--ease-std);
+}
+
+.navbar-context-action:hover:not(:disabled) {
+  border-color: var(--border-medium);
+  background: var(--bg-pill-hover);
+  color: var(--text-primary);
+}
+
+.navbar-context-action.is-active {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.navbar-context-action.is-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.navbar-context-action:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .navbar-icon-btn {

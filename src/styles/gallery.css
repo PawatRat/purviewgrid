@@ -28,7 +28,6 @@
   justify-content: space-between;
   padding: 2px 4px;
   user-select: none;
-  animation: sectionFade var(--t-slow) var(--ease-out) backwards;
 }
 
 .section-title-wrap {
@@ -116,8 +115,6 @@
   position: relative;
   margin-bottom: 16px;
   cursor: zoom-in;
-  animation: cardEnter 0.55s var(--ease-spring) backwards;
-  animation-delay: calc(var(--stagger, 0) * 26ms);
 }
 
 .image-card:hover {
@@ -212,7 +209,6 @@
   width: 100%;
   height: auto;
   user-select: none;
-  animation: imgFadeIn 0.4s var(--ease-out) backwards;
 }
 
 /* Card Scrim (Disabled - Zero unwanted shadow) */
@@ -334,6 +330,12 @@
   filter: none;
 }
 
+.board-btn.assigned {
+  color: var(--accent-hover);
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Album Tag Button & Popover */
 .album-popover {
   position: absolute;
@@ -434,7 +436,6 @@
   min-height: 60vh;
   padding: 40px 20px;
   user-select: none;
-  animation: sectionFade var(--t-slow) var(--ease-out) backwards;
 }
 
 .empty-state-content {
@@ -519,26 +520,6 @@
 .empty-secondary-btn:hover {
   background: var(--bg-pill-hover);
   color: var(--text-primary);
-}
-
-/* ==========================================================================
-   Gallery Motion
-   ========================================================================== */
-
-@keyframes cardEnter {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes imgFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 @keyframes popoverIn {

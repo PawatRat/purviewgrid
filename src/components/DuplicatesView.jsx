@@ -1,5 +1,5 @@
 import { IconFolder, IconExternal, IconCheck } from './icons';
-import { getImageSrc } from '../utils/image';
+import ImageCard from './ImageCard';
 import '../styles/duplicates.css';
 
 function parsePath(fullPath) {
@@ -11,7 +11,7 @@ function parsePath(fullPath) {
   return { folder, file, full: fullPath };
 }
 
-export default function DuplicatesView({ duplicateGroups = [], onOpenPreview }) {
+export default function DuplicatesView({ duplicateGroups = [], onOpenPreview, columns = 2, cardHandlers = {} }) {
   const handleReveal = (e, filePath) => {
     e.stopPropagation();
     if (window.electronAPI?.showInFolder) {
@@ -19,7 +19,7 @@ export default function DuplicatesView({ duplicateGroups = [], onOpenPreview }) 
     }
   };
 
-  const handleThumbClick = (groupIndex) => {
+  const handleImageClick = (groupIndex) => {
     if (onOpenPreview) {
       const itemsList = duplicateGroups.map(g => g.item);
       onOpenPreview(itemsList, groupIndex);
@@ -28,13 +28,6 @@ export default function DuplicatesView({ duplicateGroups = [], onOpenPreview }) 
 
   return (
     <div className="duplicates-view-container">
-      <div className="duplicates-header">
-        <div className="duplicates-title-group">
-          <span className="duplicates-title">DUPLICATES & OVERLAPS</span>
-          <span className="duplicates-badge">{duplicateGroups.length} {duplicateGroups.length === 1 ? 'group' : 'groups'}</span>
-        </div>
-      </div>
-
       {duplicateGroups.length === 0 ? (
         <div className="empty-state-wrapper">
           <div className="empty-state-content">
@@ -46,65 +39,70 @@ export default function DuplicatesView({ duplicateGroups = [], onOpenPreview }) 
           </div>
         </div>
       ) : (
-        <div className="duplicates-grid">
+        <div className="duplicates-grid" style={{ '--duplicates-columns': columns }}>
           {duplicateGroups.map((group, index) => {
             const item = group.item;
             const paths = group.paths || [item.path];
-            const imgSrc = getImageSrc(item.path);
             const primaryParsed = parsePath(paths[0] || item.path);
+            const { activeAlbumMenuId, activeBoardMenuId, ...sharedCardHandlers } = cardHandlers;
 
             return (
-              <div key={item.id || item.hash || index} className="duplicate-group-card">
-                <div
-                  className="duplicate-thumb-stage"
-                  onClick={() => handleThumbClick(index)}
-                  title="Click to view image"
-                >
-                  <img src={imgSrc} alt="" loading="lazy" />
+              <article key={item.id || item.hash || index} className="duplicate-group-card">
+                <div className="duplicate-image-stage" title={`Preview ${primaryParsed.file}`}>
+                  <ImageCard
+                    item={item}
+                    index={index}
+                    isSelected={false}
+                    isAlbumMenuOpen={activeAlbumMenuId === item.id}
+                    isBoardMenuOpen={activeBoardMenuId === item.id}
+                    {...sharedCardHandlers}
+                    onOpen={() => handleImageClick(index)}
+                    overlay={<span className="duplicate-copy-badge">{paths.length} {paths.length === 1 ? 'copy' : 'copies'}</span>}
+                  />
                 </div>
 
                 <div className="duplicate-content-stage">
-                  <div className="duplicate-card-top">
-                    <span className="duplicate-primary-title" title={primaryParsed.file}>
-                      {primaryParsed.file}
-                    </span>
-                    <span className="duplicate-locations-count">
-                      {paths.length} {paths.length === 1 ? 'location' : 'locations'}
-                    </span>
-                  </div>
+                  <h2 className="duplicate-primary-title" title={primaryParsed.file}>
+                    {primaryParsed.file}
+                  </h2>
 
-                  <div className="duplicate-locations-list">
-                    {paths.map((p, pIndex) => {
-                      const parsed = parsePath(p);
-                      return (
-                        <div key={pIndex} className="duplicate-location-item">
-                          <div className="duplicate-location-details" title={p}>
-                            <div className="duplicate-folder-line">
-                              <IconFolder size={12} />
-                              <span>{parsed.folder}</span>
+                  <details className="duplicate-locations-details">
+                    <summary>
+                      <IconFolder size={12} />
+                      <span className="duplicate-location-summary" title={paths.join('\n')}>
+                        {paths.map(p => parsePath(p).folder).join(' · ')}
+                      </span>
+                      <span className="duplicate-disclosure" aria-hidden="true" />
+                    </summary>
+
+                    <div className="duplicate-locations-list">
+                      {paths.map((p) => {
+                        const parsed = parsePath(p);
+                        return (
+                          <div key={p} className="duplicate-location-item">
+                            <div className="duplicate-location-text" title={p}>
+                              <span className="duplicate-folder-line">{parsed.folder}</span>
+                              {parsed.file !== primaryParsed.file && (
+                                <span className="duplicate-filename-line">{parsed.file}</span>
+                              )}
                             </div>
-                            {parsed.file !== primaryParsed.file && (
-                              <div className="duplicate-filename-line">
-                                {parsed.file}
-                              </div>
+                            {window.electronAPI?.showInFolder && (
+                              <button
+                                type="button"
+                                className="duplicate-action-btn"
+                                onClick={(e) => handleReveal(e, p)}
+                                title={`Reveal ${parsed.file} in Finder`}
+                              >
+                                <IconExternal size={12} />
+                              </button>
                             )}
                           </div>
-                          {window.electronAPI?.showInFolder && (
-                            <button
-                              type="button"
-                              className="duplicate-action-btn"
-                              onClick={(e) => handleReveal(e, p)}
-                              title="Reveal in Finder"
-                            >
-                              <IconExternal size={12} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
