@@ -6,6 +6,7 @@ import EmptyState from './components/EmptyState';
 import Lightbox from './components/Lightbox';
 import PinnedBoard from './components/PinnedBoard';
 import AlbumsOverview from './components/AlbumsOverview';
+import DuplicatesView from './components/DuplicatesView';
 import { IconExpand } from './components/icons';
 import { usePersistentState } from './hooks/usePersistentState';
 import { INITIAL_ITEMS, DEFAULT_ALBUMS } from './data/sampleData';
@@ -18,7 +19,7 @@ function App() {
   const [albums, setAlbums] = usePersistentState('purview_gallery_albums', DEFAULT_ALBUMS);
 
   // UI State
-  const [activeView, setActiveView] = useState('all'); // 'all', 'pinned', 'favorites', 'album-<id>'
+  const [activeView, setActiveView] = useState('all'); // 'all', 'pinned', 'favorites', 'duplicates', 'albums', 'album-<id>'
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isPinnedExpanded, setPinnedExpanded] = useState(false);
   const [columns, setColumns] = useState(4);
@@ -34,6 +35,11 @@ function App() {
     setItems(prev => {
       const existingPaths = new Set(prev.map(i => i.path));
       const existingHashes = new Set(prev.map(i => i.hash).filter(Boolean));
+      const mapByHash = new Map();
+      prev.forEach(item => {
+        if (item.hash) mapByHash.set(item.hash, item);
+      });
+
       const newItems = [];
       const currentAlbumId = activeView.startsWith('album-') ? activeView : null;
 
@@ -41,23 +47,44 @@ function App() {
         const itemPath = typeof incoming === 'string' ? incoming : incoming.path;
         const itemCreatedAt = (typeof incoming === 'object' && incoming.createdAt) ? incoming.createdAt : Date.now();
         const itemHash = (typeof incoming === 'object' && incoming.hash) ? incoming.hash : null;
+        const itemDupPaths = (typeof incoming === 'object' && Array.isArray(incoming.duplicatePaths)) ? incoming.duplicatePaths : [itemPath];
 
-        // 100% exact duplicate prevention (by exact file hash or identical path)
-        if (!itemPath || existingPaths.has(itemPath)) return;
-        if (itemHash && existingHashes.has(itemHash)) return;
+        if (!itemPath) return;
 
-        newItems.push({
+        // If duplicate hash already exists, record duplicate location
+        if (itemHash && mapByHash.has(itemHash)) {
+          const existingItem = mapByHash.get(itemHash);
+          if (!existingItem.duplicatePaths) {
+            existingItem.duplicatePaths = [existingItem.path];
+          }
+          itemDupPaths.forEach(p => {
+            if (!existingItem.duplicatePaths.includes(p)) {
+              existingItem.duplicatePaths.push(p);
+            }
+          });
+          return;
+        }
+
+        if (existingPaths.has(itemPath)) return;
+
+        const newItem = {
           id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           path: itemPath,
           createdAt: itemCreatedAt,
           hash: itemHash,
+          duplicatePaths: itemDupPaths,
           addedAt: Date.now(),
           isPinned: false,
           isFavorite: false,
           albumIds: currentAlbumId ? [currentAlbumId] : []
-        });
+        };
+
+        newItems.push(newItem);
         existingPaths.add(itemPath);
-        if (itemHash) existingHashes.add(itemHash);
+        if (itemHash) {
+          existingHashes.add(itemHash);
+          mapByHash.set(itemHash, newItem);
+        }
       });
 
       const combined = [...newItems, ...prev];
@@ -354,10 +381,43 @@ function App() {
     setSelectMode(false);
   }, [selectedIds, setItems]);
 
+  // Intelligent Overlapping & Duplicate Image Detection across folders
+  const duplicateGroups = useMemo(() => {
+    const map = new Map();
+    for (const item of items) {
+      const key = item.hash || (item.duplicatePaths && item.duplicatePaths.length > 1 ? item.path : null);
+      if (!key) continue;
+      if (!map.has(key)) {
+        map.set(key, {
+          item,
+          paths: new Set(item.duplicatePaths || [item.path])
+        });
+      } else {
+        const group = map.get(key);
+        group.paths.add(item.path);
+        if (item.duplicatePaths) {
+          item.duplicatePaths.forEach(p => group.paths.add(p));
+        }
+      }
+    }
+
+    const list = [];
+    for (const [, group] of map.entries()) {
+      if (group.paths.size > 1) {
+        list.push({
+          item: group.item,
+          paths: Array.from(group.paths)
+        });
+      }
+    }
+    return list;
+  }, [items]);
+
   // Statistics
   const totalCount = items.length;
   const pinnedCount = items.filter(i => i.isPinned).length;
   const favoritesCount = items.filter(i => i.isFavorite).length;
+  const duplicatesCount = duplicateGroups.length;
 
   const currentAlbum = albums.find(a => a.id === activeView);
   const currentViewTitle = activeView === 'all'
@@ -366,6 +426,8 @@ function App() {
     ? 'Pinned References'
     : activeView === 'favorites'
     ? 'Favorites'
+    : activeView === 'duplicates'
+    ? 'Duplicates'
     : activeView === 'albums'
     ? 'Albums'
     : currentAlbum ? currentAlbum.name : 'Gallery';
@@ -408,7 +470,7 @@ function App() {
         activeView={activeView}
         onSelectView={setActiveView}
         viewTitle={currentViewTitle}
-        itemCount={activeView === 'albums' ? albums.length : currentViewItems.length}
+        itemCount={activeView === 'albums' ? albums.length : activeView === 'duplicates' ? duplicatesCount : currentViewItems.length}
         columns={columns}
         onColumnsChange={setColumns}
         isSelectMode={isSelectMode}
@@ -430,6 +492,7 @@ function App() {
           totalCount={totalCount}
           pinnedCount={pinnedCount}
           favoritesCount={favoritesCount}
+          duplicatesCount={duplicatesCount}
           albums={albums}
           items={items}
           onCreateAlbum={handleCreateAlbum}
@@ -459,6 +522,11 @@ function App() {
                 onSelectAlbum={(albumId) => setActiveView(albumId)}
                 onCreateAlbum={handleCreateAlbum}
                 onDeleteAlbum={handleDeleteAlbum}
+              />
+            ) : activeView === 'duplicates' ? (
+              <DuplicatesView
+                duplicateGroups={duplicateGroups}
+                onOpenPreview={openPreview}
               />
             ) : currentViewItems.length === 0 ? (
               <EmptyState

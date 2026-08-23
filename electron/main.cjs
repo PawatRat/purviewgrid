@@ -49,15 +49,15 @@ function getFileContentHash(filePath) {
   }
 }
 
-function scanPathRecursively(targetPath, results = new Map(), seenHashes = new Set()) {
+function scanPathRecursively(targetPath, results, hashToItemMap) {
   try {
     if (!fs.existsSync(targetPath)) return results;
     const stat = fs.statSync(targetPath);
     if (stat.isDirectory()) {
       const entries = fs.readdirSync(targetPath);
       for (const entry of entries) {
-        if (entry.startsWith('.')) continue; // ignore hidden/system files
-        scanPathRecursively(path.join(targetPath, entry), results, seenHashes);
+        if (entry.startsWith('.')) continue;
+        scanPathRecursively(path.join(targetPath, entry), results, hashToItemMap);
       }
     } else if (stat.isFile()) {
       const ext = path.extname(targetPath).toLowerCase();
@@ -65,17 +65,27 @@ function scanPathRecursively(targetPath, results = new Map(), seenHashes = new S
         if (!results.has(targetPath)) {
           const hash = getFileContentHash(targetPath);
           
-          // 100% exact duplicate prevention across different folders
-          if (hash && seenHashes.has(hash)) {
-            return results; // Skip duplicate image
+          // Record duplicate paths if exact binary hash matches
+          if (hash && hashToItemMap.has(hash)) {
+            const primaryItem = hashToItemMap.get(hash);
+            if (!primaryItem.duplicatePaths) {
+              primaryItem.duplicatePaths = [primaryItem.path];
+            }
+            if (!primaryItem.duplicatePaths.includes(targetPath)) {
+              primaryItem.duplicatePaths.push(targetPath);
+            }
+            return results; // Deduplicated for main gallery
           }
-          if (hash) seenHashes.add(hash);
 
           const createdAt = (stat.birthtimeMs && stat.birthtimeMs > 0 && stat.birthtimeMs < Date.now() + 86400000)
             ? Math.floor(stat.birthtimeMs)
             : Math.floor(stat.mtimeMs || Date.now());
 
-          results.set(targetPath, { path: targetPath, createdAt, hash });
+          const item = { path: targetPath, createdAt, hash, duplicatePaths: [targetPath] };
+          if (hash) {
+            hashToItemMap.set(hash, item);
+          }
+          results.set(targetPath, item);
         }
       }
     }
@@ -87,11 +97,11 @@ function scanPathRecursively(targetPath, results = new Map(), seenHashes = new S
 
 function resolveImageFiles(inputPaths) {
   const imageMap = new Map();
-  const seenHashes = new Set();
+  const hashToItemMap = new Map();
   const pathsArray = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
   for (const p of pathsArray) {
     if (typeof p === 'string' && p.trim()) {
-      scanPathRecursively(p, imageMap, seenHashes);
+      scanPathRecursively(p, imageMap, hashToItemMap);
     }
   }
   return Array.from(imageMap.values());
@@ -259,6 +269,14 @@ ipcMain.handle('get-file-stats', async (_event, paths) => {
 
 ipcMain.handle('open-file-dialog', async () => {
   return handleOpenDialog();
+});
+
+ipcMain.handle('show-in-folder', async (_event, filePath) => {
+  if (typeof filePath === 'string' && fs.existsSync(filePath)) {
+    shell.showItemInFolder(filePath);
+    return true;
+  }
+  return false;
 });
 
 // macOS 'open-file' event (fired when user right-clicks and opens with app, or drags onto dock icon)

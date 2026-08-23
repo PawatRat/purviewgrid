@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconClock, IconPin, IconStar, IconFolder, IconGrid, IconPlus, IconClose } from './icons';
+import { IconClock, IconPin, IconStar, IconFolder, IconGrid, IconLayers, IconPlus, IconClose } from './icons';
 import '../styles/sidebar.css';
 
 export default function Sidebar({
@@ -9,6 +9,7 @@ export default function Sidebar({
   totalCount,
   pinnedCount,
   favoritesCount,
+  duplicatesCount = 0,
   albums,
   items,
   onCreateAlbum,
@@ -58,6 +59,19 @@ export default function Sidebar({
             <span className="sidebar-nav-icon yellow"><IconStar filled /></span>
             <span className="sidebar-nav-label">Favorites</span>
             <span className="sidebar-nav-count">{favoritesCount}</span>
+          </button>
+        </div>
+
+        <div className="sidebar-section">
+          <div className="sidebar-section-title">COLLECTIONS</div>
+          <button
+            type="button"
+            className={`sidebar-nav-item ${activeView === 'duplicates' ? 'active' : ''}`}
+            onClick={() => onSelectView('duplicates')}
+          >
+            <span className="sidebar-nav-icon"><IconLayers /></span>
+            <span className="sidebar-nav-label">Duplicates</span>
+            <span className="sidebar-nav-count">{duplicatesCount}</span>
           </button>
         </div>
 
