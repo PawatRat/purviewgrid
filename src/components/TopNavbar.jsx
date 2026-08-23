@@ -4,6 +4,8 @@ import '../styles/navbar.css';
 export default function TopNavbar({
   isSidebarOpen,
   onToggleSidebar,
+  activeView,
+  onSelectView,
   viewTitle,
   itemCount,
   columns,
@@ -17,6 +19,8 @@ export default function TopNavbar({
   onImportImages,
   scaleControlsRef
 }) {
+  const isInsideAlbum = activeView && activeView.startsWith('album-');
+
   return (
     <header className="top-navbar">
       {/* Left: Sidebar Toggle + Breadcrumb */}
@@ -33,6 +37,19 @@ export default function TopNavbar({
         <div className="brand-group">
           <span className="brand-name">PURVIEW</span>
           <span className="breadcrumb-divider">/</span>
+          {isInsideAlbum && (
+            <>
+              <button
+                type="button"
+                className="breadcrumb-link-btn"
+                onClick={() => onSelectView('albums')}
+                title="Back to Albums Overview"
+              >
+                Albums
+              </button>
+              <span className="breadcrumb-divider">/</span>
+            </>
+          )}
           <span className="breadcrumb-view">{viewTitle}</span>
         </div>
 

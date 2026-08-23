@@ -75,6 +75,22 @@
   color: var(--text-muted);
 }
 
+.breadcrumb-link-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color var(--t-fast) var(--ease-std);
+}
+
+.breadcrumb-link-btn:hover {
+  color: var(--text-primary);
+}
+
 .breadcrumb-view {
   font-size: 12px;
   font-weight: 500;

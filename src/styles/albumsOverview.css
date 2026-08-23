@@ -1,0 +1,247 @@
+/* ==========================================================================
+   Purview — Albums Overview (Stacking Cover Art Grid)
+   ========================================================================== */
+
+.albums-overview-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 18px 24px 60px 24px;
+  animation: sectionFade var(--t-slow) var(--ease-out) backwards;
+}
+
+.albums-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.albums-overview-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.albums-overview-title {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.albums-overview-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-pill);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: var(--r-sm);
+}
+
+.albums-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 32px 24px;
+}
+
+/* Individual Album Card */
+.album-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+  position: relative;
+}
+
+/* The Stacking Canvas */
+.album-stack-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  perspective: 800px;
+}
+
+.album-stack-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-sm);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.24s var(--ease-spring), opacity 0.24s var(--ease-std), border-color 0.2s ease;
+  will-change: transform;
+}
+
+.album-stack-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Default Stacking Geometry */
+.layer-bottom {
+  z-index: 1;
+  transform: translate(-5px, -6px) rotate(-3deg) scale(0.94);
+  opacity: 0.7;
+}
+
+.layer-mid {
+  z-index: 2;
+  transform: translate(5px, -3px) rotate(2.5deg) scale(0.97);
+  opacity: 0.88;
+}
+
+.layer-top {
+  z-index: 3;
+  transform: translate(0, 0) rotate(0deg);
+  opacity: 1;
+}
+
+/* Hover Spreading & Fanning Effect */
+.album-card-item:hover .layer-top {
+  transform: translateY(-4px) scale(1.02);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.album-card-item:hover .layer-mid {
+  transform: translate(12px, -6px) rotate(6deg) scale(0.98);
+  opacity: 0.95;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.album-card-item:hover .layer-bottom {
+  transform: translate(-12px, -10px) rotate(-7deg) scale(0.95);
+  opacity: 0.85;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Empty Album Stage */
+.album-stack-empty {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-tertiary);
+  transition: all var(--t-fast) var(--ease-std);
+}
+
+.album-card-item:hover .album-stack-empty {
+  border-color: rgba(255, 255, 255, 0.18);
+  color: var(--text-secondary);
+  background: var(--bg-card);
+}
+
+/* Album Card Metadata */
+.album-card-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.album-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.album-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-card-count {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}
+
+.album-card-actions {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-std);
+}
+
+.album-card-item:hover .album-card-actions {
+  opacity: 1;
+}
+
+.album-delete-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--t-fast) var(--ease-std);
+}
+
+.album-delete-icon-btn:hover {
+  color: var(--danger);
+  background: transparent;
+}
+
+/* Create New Album Card */
+.create-album-card-stage {
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-sm);
+  background: var(--bg-pill);
+  border: 1px dashed var(--border-medium);
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--t-fast) var(--ease-std);
+  cursor: pointer;
+}
+
+.album-card-item:hover .create-album-card-stage {
+  background: var(--bg-pill-hover);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+}
+
+.create-album-input-wrap {
+  width: 100%;
+  padding: 0 16px;
+}
+
+.create-album-inline-input {
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  text-align: center;
+}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconClock, IconPin, IconStar, IconFolder, IconPlus, IconClose } from './icons';
+import { IconClock, IconPin, IconStar, IconFolder, IconGrid, IconPlus, IconClose } from './icons';
 import '../styles/sidebar.css';
 
 export default function Sidebar({
@@ -88,6 +88,16 @@ export default function Sidebar({
           )}
 
           <div className="albums-list">
+            <button
+              type="button"
+              className={`sidebar-nav-item ${activeView === 'albums' ? 'active' : ''}`}
+              onClick={() => onSelectView('albums')}
+            >
+              <span className="sidebar-nav-icon"><IconGrid /></span>
+              <span className="sidebar-nav-label">All Albums</span>
+              <span className="sidebar-nav-count">{albums.length}</span>
+            </button>
+
             {albums.map(alb => {
               const count = items.filter(i => (i.albumIds || []).includes(alb.id)).length;
               return (
@@ -98,7 +108,7 @@ export default function Sidebar({
                 >
                   <span className="sidebar-nav-icon"><IconFolder /></span>
                   <span className="sidebar-nav-label">{alb.name}</span>
-                  <span className="sidebar-nav-count">{count}</span>
+                  <span className="sidebar-nav-count has-delete">{count}</span>
                   <button
                     type="button"
                     className="album-delete-btn"

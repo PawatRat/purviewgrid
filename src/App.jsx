@@ -5,6 +5,7 @@ import MasonryGrid from './components/MasonryGrid';
 import EmptyState from './components/EmptyState';
 import Lightbox from './components/Lightbox';
 import PinnedBoard from './components/PinnedBoard';
+import AlbumsOverview from './components/AlbumsOverview';
 import { IconExpand } from './components/icons';
 import { usePersistentState } from './hooks/usePersistentState';
 import { INITIAL_ITEMS, DEFAULT_ALBUMS } from './data/sampleData';
@@ -365,6 +366,8 @@ function App() {
     ? 'Pinned References'
     : activeView === 'favorites'
     ? 'Favorites'
+    : activeView === 'albums'
+    ? 'Albums'
     : currentAlbum ? currentAlbum.name : 'Gallery';
 
   const isAllSelected = currentViewItems.length > 0 && currentViewItems.every(i => selectedIds.has(i.id));
@@ -402,8 +405,10 @@ function App() {
       <TopNavbar
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+        activeView={activeView}
+        onSelectView={setActiveView}
         viewTitle={currentViewTitle}
-        itemCount={currentViewItems.length}
+        itemCount={activeView === 'albums' ? albums.length : currentViewItems.length}
         columns={columns}
         onColumnsChange={setColumns}
         isSelectMode={isSelectMode}
@@ -447,7 +452,15 @@ function App() {
             onDragOver={handleWindowDragOver}
             onDrop={handleWindowDrop}
           >
-            {currentViewItems.length === 0 ? (
+            {activeView === 'albums' ? (
+              <AlbumsOverview
+                albums={albums}
+                items={items}
+                onSelectAlbum={(albumId) => setActiveView(albumId)}
+                onCreateAlbum={handleCreateAlbum}
+                onDeleteAlbum={handleDeleteAlbum}
+              />
+            ) : currentViewItems.length === 0 ? (
               <EmptyState
                 activeView={activeView}
                 viewTitle={currentViewTitle}
