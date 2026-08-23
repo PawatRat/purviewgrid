@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanPaths: (paths) => ipcRenderer.invoke('scan-paths', paths),
   getFileStats: (paths) => ipcRenderer.invoke('get-file-stats', paths),
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
-  showInFolder: (path) => ipcRenderer.invoke('show-in-folder', path)
+  showInFolder: (path) => ipcRenderer.invoke('show-in-folder', path),
+  rescanDuplicates: (items) => ipcRenderer.invoke('rescan-duplicates', items)
 });

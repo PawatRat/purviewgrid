@@ -36,8 +36,13 @@ function App() {
       const existingPaths = new Set(prev.map(i => i.path));
       const existingHashes = new Set(prev.map(i => i.hash).filter(Boolean));
       const mapByHash = new Map();
-      prev.forEach(item => {
-        if (item.hash) mapByHash.set(item.hash, item);
+      const mapByPath = new Map();
+
+      const prevItemsCloned = prev.map(item => {
+        const cloned = { ...item, duplicatePaths: [...(item.duplicatePaths || [item.path])] };
+        if (cloned.hash) mapByHash.set(cloned.hash, cloned);
+        mapByPath.set(cloned.path, cloned);
+        return cloned;
       });
 
       const newItems = [];
@@ -51,12 +56,9 @@ function App() {
 
         if (!itemPath) return;
 
-        // If duplicate hash already exists, record duplicate location
+        // If duplicate hash already exists, record duplicate location on existing item
         if (itemHash && mapByHash.has(itemHash)) {
           const existingItem = mapByHash.get(itemHash);
-          if (!existingItem.duplicatePaths) {
-            existingItem.duplicatePaths = [existingItem.path];
-          }
           itemDupPaths.forEach(p => {
             if (!existingItem.duplicatePaths.includes(p)) {
               existingItem.duplicatePaths.push(p);
@@ -65,14 +67,24 @@ function App() {
           return;
         }
 
-        if (existingPaths.has(itemPath)) return;
+        // If duplicate path already exists, merge duplicatePaths
+        if (mapByPath.has(itemPath)) {
+          const existingItem = mapByPath.get(itemPath);
+          if (itemHash && !existingItem.hash) existingItem.hash = itemHash;
+          itemDupPaths.forEach(p => {
+            if (!existingItem.duplicatePaths.includes(p)) {
+              existingItem.duplicatePaths.push(p);
+            }
+          });
+          return;
+        }
 
         const newItem = {
           id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           path: itemPath,
           createdAt: itemCreatedAt,
           hash: itemHash,
-          duplicatePaths: itemDupPaths,
+          duplicatePaths: [...new Set(itemDupPaths)],
           addedAt: Date.now(),
           isPinned: false,
           isFavorite: false,
@@ -85,14 +97,16 @@ function App() {
           existingHashes.add(itemHash);
           mapByHash.set(itemHash, newItem);
         }
+        mapByPath.set(itemPath, newItem);
       });
 
-      const combined = [...newItems, ...prev];
+      const combined = [...newItems, ...prevItemsCloned];
       return combined.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
     });
   }, [activeView, setItems]);
 
   const hasBackfilledRef = useRef(false);
+  const hasRescannedDuplicatesRef = useRef(false);
 
   // Backfill creation timestamps and exact content hashes for existing local items on launch
   useEffect(() => {
@@ -118,7 +132,7 @@ function App() {
 
                 // 100% exact duplicate prevention
                 if (hash) {
-                  if (seenHashes.has(hash)) continue; // Skip exact duplicate copy
+                  if (seenHashes.has(hash)) continue;
                   seenHashes.add(hash);
                 }
                 if (seenPaths.has(item.path)) continue;
@@ -136,6 +150,25 @@ function App() {
           }
         }).catch(() => {});
       }
+    }
+  }, [items, setItems]);
+
+  // Scan root folders for overlapping duplicate copies across directories
+  useEffect(() => {
+    if (hasRescannedDuplicatesRef.current) return;
+    if (window.electronAPI?.rescanDuplicates && items.length > 0) {
+      hasRescannedDuplicatesRef.current = true;
+      window.electronAPI.rescanDuplicates(items).then(duplicateMap => {
+        if (duplicateMap && Object.keys(duplicateMap).length > 0) {
+          setItems(prev => prev.map(item => {
+            if (item.hash && duplicateMap[item.hash]) {
+              const allPaths = [...new Set([...(item.duplicatePaths || [item.path]), ...duplicateMap[item.hash]])];
+              return { ...item, duplicatePaths: allPaths };
+            }
+            return item;
+          }));
+        }
+      }).catch(() => {});
     }
   }, [items, setItems]);
 

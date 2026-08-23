@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const crypto = require('crypto');
 
 app.setName('Purview');
@@ -277,6 +278,45 @@ ipcMain.handle('show-in-folder', async (_event, filePath) => {
     return true;
   }
   return false;
+});
+
+ipcMain.handle('rescan-duplicates', async (_event, existingItems) => {
+  if (!Array.isArray(existingItems) || existingItems.length === 0) return {};
+  
+  const localPaths = existingItems
+    .map(i => (typeof i === 'string' ? i : i.path))
+    .filter(p => typeof p === 'string' && path.isAbsolute(p) && fs.existsSync(p));
+
+  if (localPaths.length === 0) return {};
+
+  const homeDir = os.homedir();
+  for (const p of localPaths) {
+    let dir = path.dirname(p);
+    for (let i = 0; i < 2; i++) {
+      const parent = path.dirname(dir);
+      if (parent && parent !== dir && parent !== '/' && parent !== homeDir && parent !== path.dirname(parent)) {
+        dir = parent;
+      }
+    }
+    rootDirs.add(dir);
+  }
+
+  const imageMap = new Map();
+  const hashToItemMap = new Map();
+  for (const root of rootDirs) {
+    if (fs.existsSync(root)) {
+      scanPathRecursively(root, imageMap, hashToItemMap);
+    }
+  }
+
+  const duplicateMap = {};
+  for (const [, item] of hashToItemMap.entries()) {
+    if (item.hash && item.duplicatePaths && item.duplicatePaths.length > 1) {
+      duplicateMap[item.hash] = item.duplicatePaths;
+    }
+  }
+
+  return duplicateMap;
 });
 
 // macOS 'open-file' event (fired when user right-clicks and opens with app, or drags onto dock icon)
