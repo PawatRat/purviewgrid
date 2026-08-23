@@ -46,7 +46,6 @@
 
 .section-dot.pinned {
   background: var(--pin);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.55);
 }
 
 .section-label {
@@ -216,24 +215,9 @@
   animation: imgFadeIn 0.4s var(--ease-out) backwards;
 }
 
-/* Top image shadow/scrim on hover to make icons clearly visible */
+/* Card Scrim (Disabled - Zero unwanted shadow) */
 .card-scrim {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.22) 55%, transparent 100%);
-  border-top-left-radius: var(--r-lg);
-  border-top-right-radius: var(--r-lg);
-  opacity: 0;
-  transition: opacity var(--t-med) var(--ease-std);
-  pointer-events: none;
-  z-index: 4;
-}
-
-.image-card:hover .card-scrim {
-  opacity: 1;
+  display: none;
 }
 
 /* Card Context Actions */
@@ -269,7 +253,7 @@
   -webkit-backdrop-filter: none;
   border: none;
   outline: none;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.82);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -277,13 +261,12 @@
   box-shadow: none;
   padding: 0;
   opacity: 0;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: none;
   transform: translateY(-2px);
   transition:
     opacity 0.16s var(--ease-out) var(--btn-delay, 0s),
     transform 0.16s var(--ease-spring) var(--btn-delay, 0s),
-    color var(--t-fast) var(--ease-std),
-    filter var(--t-fast) var(--ease-std);
+    color var(--t-fast) var(--ease-std);
 }
 
 /* Micro-stagger the reveal of trailing buttons */
@@ -309,7 +292,7 @@
   color: #ffffff;
   border: none;
   box-shadow: none;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.95));
+  filter: none;
 }
 
 .image-card .card-btn:active {
@@ -317,13 +300,13 @@
   opacity: 0.7;
 }
 
-/* Pinned Reference Button — Pure Sign Only (No border, No background) */
+/* Pinned Reference Button — Pure Sign Only (Flat color, No shadow, No background) */
 .pin-btn.pinned {
   color: #f59e0b;
   background: transparent;
   border: none;
   box-shadow: none;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: none;
 }
 
 .pin-btn.pinned:hover {
@@ -331,15 +314,16 @@
   background: transparent;
   border: none;
   transform: translateY(0);
+  filter: none;
 }
 
-/* Favorite Star Button — Pure Sign Only (No border, No background) */
+/* Favorite Star Button — Pure Sign Only (Flat color, No shadow, No background) */
 .fav-btn.favorited {
   color: #fbbf24;
   background: transparent;
   border: none;
   box-shadow: none;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: none;
 }
 
 .fav-btn.favorited:hover {
@@ -347,6 +331,7 @@
   background: transparent;
   border: none;
   transform: translateY(0);
+  filter: none;
 }
 
 /* Album Tag Button & Popover */
@@ -428,7 +413,7 @@
   background: transparent;
   color: var(--danger);
   border: none;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  filter: none;
 }
 
 .image-card .delete-btn:hover {
