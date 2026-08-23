@@ -449,6 +449,7 @@ function App() {
           >
             {currentViewItems.length === 0 ? (
               <EmptyState
+                activeView={activeView}
                 viewTitle={currentViewTitle}
                 onLoadSample={handleResetSampleGallery}
                 onImportImages={handleImportDialog}
