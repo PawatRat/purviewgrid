@@ -12,20 +12,20 @@ export default function EmptyState({ activeView = 'all', viewTitle, onLoadSample
 
   if (isAlbum) {
     icon = <IconFolder size={18} />;
-    title = `This album is empty`;
-    description = `Hover over any image in your gallery and click the folder icon to add it to "${viewTitle}", or drag images directly here.`;
+    title = 'This album is empty';
+    description = 'Drop images here or tag from gallery';
   } else if (isPinned) {
     icon = <IconPin size={18} />;
     title = 'No pinned references';
-    description = 'Pin key images from your gallery to keep them at the top of your workspace or expand them into a focus board.';
+    description = 'Pin images to keep them at top';
   } else if (isFavorites) {
     icon = <IconStar size={18} />;
     title = 'No favorites yet';
-    description = 'Click the star icon on any image in your gallery to save it to your favorites.';
+    description = 'Star images to save here';
   } else if (isAll) {
     icon = <IconGrid size={18} />;
-    title = 'Your library is empty';
-    description = 'Drag and drop images or whole folders anywhere onto this window, or import files to begin.';
+    title = 'No images in library';
+    description = 'Drop images or folders anywhere to begin';
   }
 
   return (
