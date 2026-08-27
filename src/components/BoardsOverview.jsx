@@ -50,7 +50,7 @@ export default function BoardsOverview({
                   <div className={`board-cover-grid preview-count-${previews.length}`}>
                     {previews.map((item, index) => (
                       <div key={item.id} className={`board-cover-cell cell-${index + 1}`}>
-                        <img src={getImageSrc(item.path)} alt="" loading="lazy" />
+                        <img src={getImageSrc(item.path, item.modifiedAt)} alt="" loading="lazy" />
                       </div>
                     ))}
                   </div>

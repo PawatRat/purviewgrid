@@ -251,7 +251,7 @@ function PinnedBoard({
 
               {/* Image */}
               <img
-                src={getImageSrc(item.path)}
+                src={getImageSrc(item.path, item.modifiedAt)}
                 alt="Pinned Reference"
                 draggable={false}
                 onLoad={(e) => handleImageLoad(item.id, e)}

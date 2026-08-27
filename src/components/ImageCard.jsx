@@ -177,7 +177,7 @@ export default function ImageCard({
         {overlay}
 
         <div className="img-container">
-          <img src={getImageSrc(item.path)} alt="Gallery Item" loading="lazy" draggable="false" />
+          <img src={getImageSrc(item.path, item.modifiedAt)} alt="Gallery Item" loading="lazy" draggable="false" />
         </div>
       </div>
     </div>

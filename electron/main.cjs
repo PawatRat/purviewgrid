@@ -1,113 +1,163 @@
 const { app, BrowserWindow, Menu, nativeImage, ipcMain, dialog, shell, utilityProcess } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const os = require('os');
-const crypto = require('crypto');
 
 app.setName('Purview');
 app.name = 'Purview';
 
 let mainWindow;
-let initialFiles = [];
+let pendingImports = [];
 let characterScanPromise = null;
+let fileTaskQueue = Promise.resolve();
+let activeImageInspector = null;
+let imageInspectorRequestId = 0;
+const sourceWatchers = new Map();
+const sourceRefreshTimers = new Map();
 const CHARACTER_MODEL_VERSION = 'yunet-2023mar+ccip-caformer24+sface-linked-families-v7';
 
-const SUPPORTED_IMAGE_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif', '.heic', '.heif', '.tiff', '.tif', '.ico'
-]);
+function runFileTaskNow(request) {
+  return new Promise((resolve, reject) => {
+    const worker = utilityProcess.fork(path.join(__dirname, 'file-worker.cjs'), [], {
+      serviceName: 'Purview File Analysis',
+      stdio: 'ignore'
+    });
+    let settled = false;
 
-function getFileCreationTime(filePath) {
-  try {
-    if (fs.existsSync(filePath)) {
-      const stat = fs.statSync(filePath);
-      if (stat.birthtimeMs && stat.birthtimeMs > 0 && stat.birthtimeMs < Date.now() + 86400000) {
-        return Math.floor(stat.birthtimeMs);
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      callback(value);
+      worker.kill();
+    };
+
+    worker.on('message', message => {
+      if (message?.type === 'complete') {
+        finish(resolve, message.result);
+      } else if (message?.type === 'error') {
+        finish(reject, new Error(message.error || 'File analysis failed'));
       }
-      if (stat.mtimeMs && stat.mtimeMs > 0) {
-        return Math.floor(stat.mtimeMs);
-      }
-      if (stat.ctimeMs && stat.ctimeMs > 0) {
-        return Math.floor(stat.ctimeMs);
-      }
-    }
-  } catch (err) {
-    console.error('Error reading file stat:', filePath, err);
-  }
-  return Date.now();
+    });
+    worker.on('exit', code => {
+      if (!settled) finish(reject, new Error(`File analysis stopped unexpectedly (${code})`));
+    });
+    worker.postMessage(request);
+  });
 }
 
-function getFileContentHash(filePath) {
-  try {
-    if (!fs.existsSync(filePath)) return null;
-    const stat = fs.statSync(filePath);
-    if (!stat.isFile()) return null;
+function runFileTask(request) {
+  const task = fileTaskQueue.then(() => runFileTaskNow(request));
+  fileTaskQueue = task.catch(() => undefined);
+  return task;
+}
 
-    // Compute exact binary SHA-256 checksum for 100% accurate deduplication
-    const buffer = fs.readFileSync(filePath);
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-    return `${stat.size}_${hash}`;
-  } catch (err) {
-    console.error('Error computing file hash:', filePath, err);
-    return null;
+function runImageInspectorNow(request) {
+  if (request.requestId !== imageInspectorRequestId) {
+    return Promise.resolve({ status: 'cancelled', metadata: null, exif: {}, related: [] });
+  }
+  return new Promise((resolve, reject) => {
+    const worker = utilityProcess.fork(path.join(__dirname, 'image-inspector-worker.cjs'), [], {
+      serviceName: 'Purview Image Inspector',
+      stdio: 'ignore'
+    });
+    let settled = false;
+
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      if (activeImageInspector === worker) activeImageInspector = null;
+      callback(value);
+      worker.kill();
+    };
+
+    worker.on('message', message => {
+      if (message?.type === 'complete') finish(resolve, message.result);
+      else if (message?.type === 'error') finish(reject, new Error(message.error || 'Image inspection failed'));
+    });
+    worker.on('exit', code => {
+      if (!settled) finish(reject, new Error(`Image inspection stopped unexpectedly (${code})`));
+    });
+    activeImageInspector = worker;
+    worker.postMessage(request);
+  });
+}
+
+function runImageInspector(item, candidates) {
+  imageInspectorRequestId += 1;
+  if (activeImageInspector) activeImageInspector.kill();
+  const request = {
+    requestId: imageInspectorRequestId,
+    item,
+    candidates,
+    cachePath: path.join(app.getPath('userData'), 'image-inspector-index.json')
+  };
+  const task = fileTaskQueue.then(() => runImageInspectorNow(request));
+  fileTaskQueue = task.catch(() => undefined);
+  return task;
+}
+
+function deliverImportResult(result) {
+  const payload = Array.isArray(result) ? { images: result, sourceFolders: [] } : result;
+  if (!payload || (!payload.images?.length && !payload.sourceFolders?.length)) return;
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoadingMainFrame()) {
+    mainWindow.webContents.send('opened-files', payload);
+  } else {
+    pendingImports.push(payload);
   }
 }
 
-function scanPathRecursively(targetPath, results, hashToItemMap) {
-  try {
-    if (!fs.existsSync(targetPath)) return results;
-    const stat = fs.statSync(targetPath);
-    if (stat.isDirectory()) {
-      const entries = fs.readdirSync(targetPath);
-      for (const entry of entries) {
-        if (entry.startsWith('.')) continue;
-        scanPathRecursively(path.join(targetPath, entry), results, hashToItemMap);
+async function ingestPaths(inputPaths) {
+  const result = await runFileTask({ type: 'import-paths', paths: inputPaths });
+  deliverImportResult(result);
+  return result;
+}
+
+function closeSourceWatcher(sourcePath) {
+  const watcher = sourceWatchers.get(sourcePath);
+  if (watcher) watcher.close();
+  sourceWatchers.delete(sourcePath);
+  const timer = sourceRefreshTimers.get(sourcePath);
+  if (timer) clearTimeout(timer);
+  sourceRefreshTimers.delete(sourcePath);
+}
+
+function watchSourceFolders(inputPaths) {
+  const sourcePaths = [...new Set((Array.isArray(inputPaths) ? inputPaths : [])
+    .filter(sourcePath => typeof sourcePath === 'string' && path.isAbsolute(sourcePath))
+    .map(sourcePath => path.resolve(sourcePath))
+    .filter(sourcePath => {
+      try {
+        return fs.statSync(sourcePath).isDirectory();
+      } catch {
+        return false;
       }
-    } else if (stat.isFile()) {
-      const ext = path.extname(targetPath).toLowerCase();
-      if (SUPPORTED_IMAGE_EXTENSIONS.has(ext)) {
-        if (!results.has(targetPath)) {
-          const hash = getFileContentHash(targetPath);
-          
-          // Record duplicate paths if exact binary hash matches
-          if (hash && hashToItemMap.has(hash)) {
-            const primaryItem = hashToItemMap.get(hash);
-            if (!primaryItem.duplicatePaths) {
-              primaryItem.duplicatePaths = [primaryItem.path];
-            }
-            if (!primaryItem.duplicatePaths.includes(targetPath)) {
-              primaryItem.duplicatePaths.push(targetPath);
-            }
-            return results; // Deduplicated for main gallery
+    }))];
+  const requestedPaths = new Set(sourcePaths);
+
+  for (const watchedPath of sourceWatchers.keys()) {
+    if (!requestedPaths.has(watchedPath)) closeSourceWatcher(watchedPath);
+  }
+
+  for (const sourcePath of sourcePaths) {
+    if (sourceWatchers.has(sourcePath)) continue;
+    try {
+      const watcher = fs.watch(sourcePath, { recursive: true }, () => {
+        const previousTimer = sourceRefreshTimers.get(sourcePath);
+        if (previousTimer) clearTimeout(previousTimer);
+        sourceRefreshTimers.set(sourcePath, setTimeout(() => {
+          sourceRefreshTimers.delete(sourcePath);
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('source-folder-changed', sourcePath);
           }
-
-          const createdAt = (stat.birthtimeMs && stat.birthtimeMs > 0 && stat.birthtimeMs < Date.now() + 86400000)
-            ? Math.floor(stat.birthtimeMs)
-            : Math.floor(stat.mtimeMs || Date.now());
-
-          const item = { path: targetPath, createdAt, hash, duplicatePaths: [targetPath] };
-          if (hash) {
-            hashToItemMap.set(hash, item);
-          }
-          results.set(targetPath, item);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Error scanning path:', targetPath, err);
-  }
-  return results;
-}
-
-function resolveImageFiles(inputPaths) {
-  const imageMap = new Map();
-  const hashToItemMap = new Map();
-  const pathsArray = Array.isArray(inputPaths) ? inputPaths : [inputPaths];
-  for (const p of pathsArray) {
-    if (typeof p === 'string' && p.trim()) {
-      scanPathRecursively(p, imageMap, hashToItemMap);
+        }, 700));
+      });
+      watcher.on('error', () => closeSourceWatcher(sourcePath));
+      sourceWatchers.set(sourcePath, watcher);
+    } catch {
+      // Startup synchronization still works when recursive watching is unavailable.
     }
   }
-  return Array.from(imageMap.values());
+
+  return sourcePaths;
 }
 
 async function handleOpenDialog() {
@@ -118,11 +168,7 @@ async function handleOpenDialog() {
   });
 
   if (!result.canceled && result.filePaths.length > 0) {
-    const images = resolveImageFiles(result.filePaths);
-    if (images.length > 0) {
-      mainWindow.webContents.send('opened-files', images);
-      return images;
-    }
+    return ingestPaths(result.filePaths);
   }
   return [];
 }
@@ -307,9 +353,9 @@ function createWindow() {
   mainWindow.loadURL(startUrl);
 
   mainWindow.webContents.on('did-finish-load', () => {
-    if (initialFiles.length > 0) {
-      mainWindow.webContents.send('opened-files', initialFiles);
-      initialFiles = []; // clear them after sending
+    if (pendingImports.length > 0) {
+      pendingImports.forEach(result => mainWindow.webContents.send('opened-files', result));
+      pendingImports = [];
     }
   });
 
@@ -319,27 +365,28 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    for (const sourcePath of [...sourceWatchers.keys()]) closeSourceWatcher(sourcePath);
     mainWindow = null;
   });
 }
 
 // IPC Handlers
 ipcMain.handle('scan-paths', async (_event, paths) => {
-  return resolveImageFiles(paths);
+  return runFileTask({ type: 'scan-paths', paths });
 });
 
+ipcMain.handle('import-paths', async (_event, paths) => {
+  return runFileTask({ type: 'import-paths', paths });
+});
+
+ipcMain.handle('sync-source-folders', async (_event, paths, items, sourceFiles) => {
+  return runFileTask({ type: 'sync-source-folders', paths, items, sourceFiles });
+});
+
+ipcMain.handle('watch-source-folders', async (_event, paths) => watchSourceFolders(paths));
+
 ipcMain.handle('get-file-stats', async (_event, paths) => {
-  const statsMap = {};
-  if (!Array.isArray(paths)) return statsMap;
-  for (const p of paths) {
-    if (typeof p === 'string') {
-      statsMap[p] = {
-        createdAt: getFileCreationTime(p),
-        hash: getFileContentHash(p)
-      };
-    }
-  }
-  return statsMap;
+  return runFileTask({ type: 'get-file-stats', paths });
 });
 
 ipcMain.handle('open-file-dialog', async () => {
@@ -354,44 +401,9 @@ ipcMain.handle('show-in-folder', async (_event, filePath) => {
   return false;
 });
 
-ipcMain.handle('rescan-duplicates', async (_event, existingItems) => {
-  if (!Array.isArray(existingItems) || existingItems.length === 0) return {};
-  
-  const localPaths = existingItems
-    .map(i => (typeof i === 'string' ? i : i.path))
-    .filter(p => typeof p === 'string' && path.isAbsolute(p) && fs.existsSync(p));
-
-  if (localPaths.length === 0) return {};
-
-  const rootDirs = new Set();
-  const homeDir = os.homedir();
-  for (const p of localPaths) {
-    let dir = path.dirname(p);
-    for (let i = 0; i < 2; i++) {
-      const parent = path.dirname(dir);
-      if (parent && parent !== dir && parent !== '/' && parent !== homeDir && parent !== path.dirname(parent)) {
-        dir = parent;
-      }
-    }
-    rootDirs.add(dir);
-  }
-
-  const imageMap = new Map();
-  const hashToItemMap = new Map();
-  for (const root of rootDirs) {
-    if (fs.existsSync(root)) {
-      scanPathRecursively(root, imageMap, hashToItemMap);
-    }
-  }
-
-  const duplicateMap = {};
-  for (const [, item] of hashToItemMap.entries()) {
-    if (item.hash && item.duplicatePaths && item.duplicatePaths.length > 1) {
-      duplicateMap[item.hash] = item.duplicatePaths;
-    }
-  }
-
-  return duplicateMap;
+ipcMain.handle('inspect-image', async (_event, item, candidates) => {
+  if (!item || typeof item.path !== 'string') throw new Error('A valid image is required.');
+  return runImageInspector(item, Array.isArray(candidates) ? candidates : []);
 });
 
 ipcMain.handle('scan-characters', async (_event, items) => {
@@ -404,19 +416,16 @@ ipcMain.handle('get-character-index', async () => getCachedCharacterData());
 // macOS 'open-file' event (fired when user right-clicks and opens with app, or drags onto dock icon)
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  const images = resolveImageFiles(filePath);
-  if (images.length === 0) return;
-
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
-    mainWindow.webContents.send('opened-files', images);
-  } else {
-    initialFiles.push(...images);
-    if (app.isReady()) {
-      createWindow();
-    }
+  } else if (app.isReady()) {
+    createWindow();
   }
+
+  app.whenReady().then(() => ingestPaths(filePath)).catch(error => {
+    console.error('Unable to open image file:', error);
+  });
 });
 
 app.whenReady().then(() => {
@@ -426,12 +435,13 @@ app.whenReady().then(() => {
   const args = process.argv.slice(1);
   const fileArgs = args.filter(a => !a.startsWith('--') && (path.isAbsolute(a) || path.extname(a) !== ''));
   
-  if (fileArgs.length > 0) {
-    const images = resolveImageFiles(fileArgs);
-    initialFiles.push(...images);
-  }
-
   createWindow();
+
+  if (fileArgs.length > 0) {
+    ingestPaths(fileArgs).catch(error => {
+      console.error('Unable to open command-line images:', error);
+    });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

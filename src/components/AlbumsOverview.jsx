@@ -32,9 +32,9 @@ export default function AlbumsOverview({
           const count = albumImages.length;
 
           // Extract up to 3 preview images for the stack
-          const topImg = albumImages[0] ? getImageSrc(albumImages[0].path) : null;
-          const midImg = albumImages[1] ? getImageSrc(albumImages[1].path) : null;
-          const bottomImg = albumImages[2] ? getImageSrc(albumImages[2].path) : null;
+          const topImg = albumImages[0] ? getImageSrc(albumImages[0].path, albumImages[0].modifiedAt) : null;
+          const midImg = albumImages[1] ? getImageSrc(albumImages[1].path, albumImages[1].modifiedAt) : null;
+          const bottomImg = albumImages[2] ? getImageSrc(albumImages[2].path, albumImages[2].modifiedAt) : null;
 
           return (
             <div

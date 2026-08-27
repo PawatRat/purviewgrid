@@ -46,6 +46,9 @@ flowchart LR
 ### 3.1. Automatic History & Persistence
 - **Session Memory**: All opened files are persistently saved in a lightweight local library index.
 - **Deduplication**: Opening a previously viewed image updates its recent timestamp rather than duplicating it.
+- **Source Folder Sync**: Persist folders imported by the user, rescan them when Purview launches, and observe them while Purview is open. Add newly discovered images and refresh changed files in place without losing pins, favorites, album membership, or board membership.
+- **Moved File Relinking**: When an imported image moves within a tracked folder tree, match it by content fingerprint and replace its stored primary path while keeping its stable library identity and organization. Track individually imported files without importing unrelated sibling images, and use filesystem identity to follow moves within their original parent folder tree.
+- **Non-Destructive Missing Files**: A source refresh must never silently remove a library record when its file disappears. Missing-file recovery and folder relinking remain explicit follow-up workflows.
 - **Clear History Option**: Allows users to clear recent viewing history if desired.
 
 ### 3.2. Navigation Sidebar (Collapsible)
@@ -75,6 +78,11 @@ A sleek, modern left sidebar with direct access to:
 - Keep Favorite, Pin, Album, and Board actions available at the preview's top-right edge.
 - Preview action buttons may change border, surface, and icon color on hover, but must not grow, shrink, shift, or use an expansion transition.
 - Treat the complete Preview overlay and toolbar as a native non-drag region so macOS title-bar dragging never intercepts zoom, organization, or close controls.
+- Present a persistent inspector beside the image with filename, source folder, byte size, dimensions, aspect ratio, format, color/encoding properties, creation and modification dates, content fingerprint, duplicate locations, and current album/board membership.
+- Decode and display embedded camera, exposure, lens, capture-time, software, and GPS metadata when the file provides it. Keep this work entirely on-device.
+- Show visually related library images directly below the metadata and open a related image in the same preview when selected.
+- Compute relatedness from image content rather than filenames. Cache compact visual fingerprints by path, size, and modification time, reuse unchanged fingerprints, process candidates serially in a background utility process, and cap new analysis per preview so opening an image cannot create an unbounded CPU or memory spike.
+- Clearly distinguish unavailable metadata from loading or analysis failure; remote sample images may show library metadata without local file inspection.
 
 ### 3.5. Boards
 - Add a first-class **Boards** destination under Library, presented as an album-like overview of locally persisted board cards.
@@ -85,7 +93,8 @@ A sleek, modern left sidebar with direct access to:
 - Persist board names, membership, and manual order locally. Removing an image from a board must not delete it from the Purview library or disk.
 
 ### 3.6. Exact Duplicates
-- Group exact binary image matches found across local folders while keeping only one image in the main gallery.
+- Group exact binary image matches found within explicitly imported files and tracked source folders while keeping only one image in the main gallery.
+- Never walk into parent or neighboring folders to discover duplicates. Duplicate indexing must stay inside user-selected sources and reuse unchanged file fingerprints.
 - Present duplicate groups as large, image-first masonry tiles that preserve each image's natural aspect ratio without cropping, stretching, or letterboxing.
 - Show the number of copies directly on the image and keep folder locations collapsed into quiet metadata by default.
 - Allow users to expand each group and reveal any individual copy in Finder.
@@ -144,7 +153,7 @@ A sleek, modern left sidebar with direct access to:
 | In Scope (Core Focus) | Out of Scope (Deferred) |
 | :--- | :--- |
 | Persistent Viewing History & Recents | Cloud Sync & Accounts |
-| Collapsible Navigation Sidebar | Complex File Watching Daemons |
+| Collapsible Navigation Sidebar | Always-running System File Daemons |
 | Starred Favorites (★) | Automated Color Extraction Tools |
 | Custom Albums (+ New Album, Add to Album) | Destructive File System Editing |
 | Fluid Masonry Grid & Lightbox Preview | AI Tagging Engines |

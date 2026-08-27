@@ -22,6 +22,8 @@ function App() {
   const [albums, setAlbums] = usePersistentState('purview_gallery_albums', DEFAULT_ALBUMS);
   const [boards, setBoards] = usePersistentState('purview_gallery_boards_v1', []);
   const [characterManualSections, setCharacterManualSections] = usePersistentState('purview_character_manual_sections_v1', []);
+  const [sourceFolders, setSourceFolders] = usePersistentState('purview_gallery_source_folders_v1', []);
+  const [sourceFiles, setSourceFiles] = usePersistentState('purview_gallery_source_files_v1', []);
 
   // UI State
   const [activeView, setActiveView] = useState('all'); // 'all', 'pinned', 'favorites', 'duplicates', 'characters', 'albums', 'album-<id>'
@@ -44,6 +46,12 @@ function App() {
   const scaleControlsRef = useRef(null);
   const wheelAccumulatorRef = useRef(0);
   const lastCharacterScanKeyRef = useRef('');
+  const itemsRef = useRef(items);
+  const sourceSyncQueueRef = useRef(Promise.resolve());
+
+  useEffect(() => {
+    itemsRef.current = items;
+  }, [items]);
 
   const localCharacterItems = useMemo(() => items.filter(item => (
     typeof item.path === 'string'
@@ -54,30 +62,98 @@ function App() {
     .sort()
     .join('|'), [localCharacterItems]);
 
-  const addImagesToLibrary = useCallback((newIncomingItems) => {
+  const addImagesToLibrary = useCallback((newIncomingItems, targetAlbumId = null, syncedFolders = [], missingPaths = []) => {
     setItems(prev => {
-      const existingPaths = new Set(prev.map(i => i.path));
-      const existingHashes = new Set(prev.map(i => i.hash).filter(Boolean));
       const mapByHash = new Map();
       const mapByPath = new Map();
+      const previousPaths = new Set(prev.map(item => item.path));
+      const missingPathSet = new Set(missingPaths);
+      const normalizedSyncedFolders = syncedFolders.map(folder => folder.replace(/\\/g, '/').replace(/\/+$/, ''));
+      const isInsideSyncedFolder = itemPath => {
+        const normalizedPath = itemPath.replace(/\\/g, '/');
+        return normalizedSyncedFolders.some(folder => normalizedPath === folder || normalizedPath.startsWith(`${folder}/`));
+      };
+      const availableIncomingItems = newIncomingItems.filter(incoming => (
+        incoming && typeof incoming === 'object' && incoming.path && !previousPaths.has(incoming.path)
+      ));
+      const incomingByIdentity = new Map();
+      const incomingByHash = new Map();
+      availableIncomingItems.forEach(incoming => {
+        if (Number.isFinite(incoming.deviceId) && Number.isFinite(incoming.inode)) {
+          incomingByIdentity.set(`${incoming.deviceId}:${incoming.inode}`, incoming);
+        }
+        if (incoming.hash) {
+          const candidates = incomingByHash.get(incoming.hash) || [];
+          candidates.push(incoming);
+          incomingByHash.set(incoming.hash, candidates);
+        }
+      });
+      const usedRelinkPaths = new Set();
+      const findRelinkCandidate = item => {
+        if (!missingPathSet.has(item.path)) return null;
+        const identityKey = Number.isFinite(item.deviceId) && Number.isFinite(item.inode)
+          ? `${item.deviceId}:${item.inode}`
+          : null;
+        const identityMatch = identityKey ? incomingByIdentity.get(identityKey) : null;
+        if (identityMatch && !usedRelinkPaths.has(identityMatch.path)) return identityMatch;
+        return (incomingByHash.get(item.hash) || []).find(candidate => !usedRelinkPaths.has(candidate.path)) || null;
+      };
 
       const prevItemsCloned = prev.map(item => {
-        const cloned = { ...item, duplicatePaths: [...(item.duplicatePaths || [item.path])] };
+        const relinkedItem = findRelinkCandidate(item);
+        if (relinkedItem) usedRelinkPaths.add(relinkedItem.path);
+        const currentItem = relinkedItem ? {
+          ...item,
+          path: relinkedItem.path,
+          createdAt: relinkedItem.createdAt || item.createdAt,
+          modifiedAt: relinkedItem.modifiedAt,
+          size: relinkedItem.size,
+          deviceId: relinkedItem.deviceId,
+          inode: relinkedItem.inode,
+          hash: relinkedItem.hash || item.hash
+        } : item;
+        const duplicatePaths = (item.duplicatePaths || [item.path])
+          .filter(duplicatePath => duplicatePath !== item.path && !isInsideSyncedFolder(duplicatePath));
+        const cloned = { ...currentItem, duplicatePaths: [...new Set([currentItem.path, ...duplicatePaths])] };
         if (cloned.hash) mapByHash.set(cloned.hash, cloned);
         mapByPath.set(cloned.path, cloned);
         return cloned;
       });
 
       const newItems = [];
-      const currentAlbumId = activeView.startsWith('album-') ? activeView : null;
 
       newIncomingItems.forEach(incoming => {
         const itemPath = typeof incoming === 'string' ? incoming : incoming.path;
         const itemCreatedAt = (typeof incoming === 'object' && incoming.createdAt) ? incoming.createdAt : Date.now();
         const itemHash = (typeof incoming === 'object' && incoming.hash) ? incoming.hash : null;
+        const itemModifiedAt = (typeof incoming === 'object' && incoming.modifiedAt) ? incoming.modifiedAt : null;
+        const itemSize = (typeof incoming === 'object' && Number.isFinite(incoming.size)) ? incoming.size : null;
+        const itemDeviceId = (typeof incoming === 'object' && Number.isFinite(incoming.deviceId)) ? incoming.deviceId : null;
+        const itemInode = (typeof incoming === 'object' && Number.isFinite(incoming.inode)) ? incoming.inode : null;
         const itemDupPaths = (typeof incoming === 'object' && Array.isArray(incoming.duplicatePaths)) ? incoming.duplicatePaths : [itemPath];
 
         if (!itemPath) return;
+
+        // A known path may now contain changed image data. Refresh its fingerprint
+        // in place so all user organization tied to its stable ID is preserved.
+        if (mapByPath.has(itemPath)) {
+          const existingItem = mapByPath.get(itemPath);
+          const previousHash = existingItem.hash;
+          if (itemHash && previousHash !== itemHash) {
+            if (mapByHash.get(previousHash) === existingItem) mapByHash.delete(previousHash);
+            existingItem.hash = itemHash;
+            if (!mapByHash.has(itemHash)) mapByHash.set(itemHash, existingItem);
+          }
+          existingItem.createdAt = itemCreatedAt || existingItem.createdAt;
+          if (itemModifiedAt) existingItem.modifiedAt = itemModifiedAt;
+          if (itemSize !== null) existingItem.size = itemSize;
+          if (itemDeviceId !== null) existingItem.deviceId = itemDeviceId;
+          if (itemInode !== null) existingItem.inode = itemInode;
+          itemDupPaths.forEach(p => {
+            if (!existingItem.duplicatePaths.includes(p)) existingItem.duplicatePaths.push(p);
+          });
+          return;
+        }
 
         // If duplicate hash already exists, record duplicate location on existing item
         if (itemHash && mapByHash.has(itemHash)) {
@@ -90,34 +166,24 @@ function App() {
           return;
         }
 
-        // If duplicate path already exists, merge duplicatePaths
-        if (mapByPath.has(itemPath)) {
-          const existingItem = mapByPath.get(itemPath);
-          if (itemHash && !existingItem.hash) existingItem.hash = itemHash;
-          itemDupPaths.forEach(p => {
-            if (!existingItem.duplicatePaths.includes(p)) {
-              existingItem.duplicatePaths.push(p);
-            }
-          });
-          return;
-        }
-
         const newItem = {
           id: `img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
           path: itemPath,
           createdAt: itemCreatedAt,
+          ...(itemModifiedAt ? { modifiedAt: itemModifiedAt } : {}),
+          ...(itemSize !== null ? { size: itemSize } : {}),
+          ...(itemDeviceId !== null ? { deviceId: itemDeviceId } : {}),
+          ...(itemInode !== null ? { inode: itemInode } : {}),
           hash: itemHash,
           duplicatePaths: [...new Set(itemDupPaths)],
           addedAt: Date.now(),
           isPinned: false,
           isFavorite: false,
-          albumIds: currentAlbumId ? [currentAlbumId] : []
+          albumIds: targetAlbumId ? [targetAlbumId] : []
         };
 
         newItems.push(newItem);
-        existingPaths.add(itemPath);
         if (itemHash) {
-          existingHashes.add(itemHash);
           mapByHash.set(itemHash, newItem);
         }
         mapByPath.set(itemPath, newItem);
@@ -126,10 +192,85 @@ function App() {
       const combined = [...newItems, ...prevItemsCloned];
       return combined.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
     });
-  }, [activeView, setItems]);
+  }, [setItems]);
+
+  const registerSourceFolders = useCallback((folders) => {
+    if (!Array.isArray(folders) || folders.length === 0) return;
+    setSourceFolders(prev => [...new Set([...prev, ...folders.filter(Boolean)])]);
+  }, [setSourceFolders]);
+
+  const registerSourceFiles = useCallback((files) => {
+    if (!Array.isArray(files) || files.length === 0) return;
+    setSourceFiles(prev => {
+      const next = [...prev];
+      let changed = false;
+      files.filter(file => file?.path).forEach(file => {
+        const existingIndex = next.findIndex(candidate => candidate.id === file.id || candidate.path === file.path);
+        if (existingIndex >= 0) {
+          const existing = next[existingIndex];
+          const merged = { ...existing, ...file, id: existing.id };
+          if (existing.path !== merged.path
+            || existing.root !== merged.root
+            || existing.deviceId !== merged.deviceId
+            || existing.inode !== merged.inode) {
+            next[existingIndex] = merged;
+            changed = true;
+          }
+        } else {
+          next.push(file);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [setSourceFiles]);
+
+  const handleImportResult = useCallback((result) => {
+    const images = Array.isArray(result) ? result : result?.images;
+    const folders = Array.isArray(result) ? [] : result?.sourceFolders;
+    const files = Array.isArray(result) ? [] : result?.sourceFiles;
+    registerSourceFolders(folders);
+    registerSourceFiles(files);
+    if (Array.isArray(images) && images.length > 0) {
+      const targetAlbumId = activeView.startsWith('album-') ? activeView : null;
+      addImagesToLibrary(images, targetAlbumId);
+    }
+  }, [activeView, addImagesToLibrary, registerSourceFiles, registerSourceFolders]);
+
+  const syncTrackedSources = useCallback((folders = sourceFolders, trackedFiles = sourceFiles) => {
+    const validFolders = [...new Set((Array.isArray(folders) ? folders : []).filter(Boolean))];
+    const validSourceFiles = (Array.isArray(trackedFiles) ? trackedFiles : []).filter(file => file?.path);
+    if ((validFolders.length === 0 && validSourceFiles.length === 0) || !window.electronAPI?.syncSourceFolders) {
+      return Promise.resolve({ images: [], missingPaths: [], sourceFiles: validSourceFiles });
+    }
+
+    const runSync = async () => {
+      const existingItems = itemsRef.current.map(item => ({
+        path: item.path,
+        hash: item.hash,
+        modifiedAt: item.modifiedAt,
+        size: item.size,
+        deviceId: item.deviceId,
+        inode: item.inode
+      }));
+      const result = await window.electronAPI.syncSourceFolders(validFolders, existingItems, validSourceFiles);
+      const refreshedImages = Array.isArray(result) ? result : result?.images || [];
+      const missingPaths = Array.isArray(result) ? [] : result?.missingPaths || [];
+      const refreshedSourceFiles = Array.isArray(result) ? validSourceFiles : result?.sourceFiles || validSourceFiles;
+      const watchedRoots = [...new Set([...validFolders, ...validSourceFiles.map(file => file.root).filter(Boolean)])];
+      if (refreshedImages.length > 0) {
+        addImagesToLibrary(refreshedImages, null, watchedRoots, missingPaths);
+      }
+      registerSourceFiles(refreshedSourceFiles);
+      return { images: refreshedImages, missingPaths, sourceFiles: refreshedSourceFiles };
+    };
+
+    const queuedSync = sourceSyncQueueRef.current.then(runSync, runSync);
+    sourceSyncQueueRef.current = queuedSync.catch(() => []);
+    return queuedSync;
+  }, [addImagesToLibrary, registerSourceFiles, sourceFiles, sourceFolders]);
 
   const hasBackfilledRef = useRef(false);
-  const hasRescannedDuplicatesRef = useRef(false);
 
   // Backfill creation timestamps and exact content hashes for existing local items on launch
   useEffect(() => {
@@ -144,28 +285,54 @@ function App() {
         window.electronAPI.getFileStats(localPathsNeedingStat).then(statsMap => {
           if (statsMap && Object.keys(statsMap).length > 0) {
             setItems(prev => {
-              const seenHashes = new Set();
-              const seenPaths = new Set();
+              const itemIndexByHash = new Map();
+              const itemIndexByPath = new Map();
               const updated = [];
 
               for (const item of prev) {
                 const stat = statsMap[item.path];
                 const hash = stat?.hash || item.hash;
                 const createdAt = stat?.createdAt || item.createdAt;
-
-                // 100% exact duplicate prevention
-                if (hash) {
-                  if (seenHashes.has(hash)) continue;
-                  seenHashes.add(hash);
-                }
-                if (seenPaths.has(item.path)) continue;
-                seenPaths.add(item.path);
-
-                updated.push({
+                const modifiedAt = stat?.modifiedAt || item.modifiedAt;
+                const size = Number.isFinite(stat?.size) ? stat.size : item.size;
+                const deviceId = Number.isFinite(stat?.deviceId) ? stat.deviceId : item.deviceId;
+                const inode = Number.isFinite(stat?.inode) ? stat.inode : item.inode;
+                const candidate = {
                   ...item,
                   ...(hash ? { hash } : {}),
-                  ...(createdAt ? { createdAt } : {})
-                });
+                  ...(createdAt ? { createdAt } : {}),
+                  ...(modifiedAt ? { modifiedAt } : {}),
+                  ...(Number.isFinite(size) ? { size } : {}),
+                  ...(Number.isFinite(deviceId) ? { deviceId } : {}),
+                  ...(Number.isFinite(inode) ? { inode } : {}),
+                  duplicatePaths: [...new Set([item.path, ...(item.duplicatePaths || [])])]
+                };
+                const existingIndex = hash && itemIndexByHash.has(hash)
+                  ? itemIndexByHash.get(hash)
+                  : itemIndexByPath.get(item.path);
+
+                if (existingIndex !== undefined) {
+                  const existing = updated[existingIndex];
+                  updated[existingIndex] = {
+                    ...existing,
+                    duplicatePaths: [...new Set([
+                      ...(existing.duplicatePaths || [existing.path]),
+                      ...(candidate.duplicatePaths || [candidate.path]),
+                      candidate.path
+                    ])],
+                    albumIds: [...new Set([...(existing.albumIds || []), ...(candidate.albumIds || [])])],
+                    isPinned: Boolean(existing.isPinned || candidate.isPinned),
+                    isFavorite: Boolean(existing.isFavorite || candidate.isFavorite)
+                  };
+                  if (hash) itemIndexByHash.set(hash, existingIndex);
+                  itemIndexByPath.set(candidate.path, existingIndex);
+                  continue;
+                }
+
+                const nextIndex = updated.length;
+                updated.push(candidate);
+                if (hash) itemIndexByHash.set(hash, nextIndex);
+                itemIndexByPath.set(item.path, nextIndex);
               }
 
               return updated.sort((a, b) => (b.createdAt || b.addedAt || 0) - (a.createdAt || a.addedAt || 0));
@@ -220,10 +387,8 @@ function App() {
   }, [activeView, characterData.status, characterScanKey, handleScanCharacters, localCharacterItems.length]);
 
   const handleSelectView = useCallback((view) => {
-    if (view === 'characters' || view === 'duplicates') {
-      setSelectMode(false);
-      setSelectedIds(new Set());
-    }
+    setSelectMode(false);
+    setSelectedIds(new Set());
     if (view !== 'characters') {
       setCharacterOrganizing(false);
       setCharacterResetOpen(false);
@@ -232,46 +397,44 @@ function App() {
     setActiveView(view);
   }, []);
 
-  // Scan root folders for overlapping duplicate copies across directories
-  useEffect(() => {
-    if (hasRescannedDuplicatesRef.current) return;
-    if (window.electronAPI?.rescanDuplicates && items.length > 0) {
-      hasRescannedDuplicatesRef.current = true;
-      window.electronAPI.rescanDuplicates(items).then(duplicateMap => {
-        if (duplicateMap && Object.keys(duplicateMap).length > 0) {
-          setItems(prev => prev.map(item => {
-            if (item.hash && duplicateMap[item.hash]) {
-              const allPaths = [...new Set([...(item.duplicatePaths || [item.path]), ...duplicateMap[item.hash]])];
-              return { ...item, duplicatePaths: allPaths };
-            }
-            return item;
-          }));
-        }
-      }).catch(() => {});
-    }
-  }, [items, setItems]);
-
   // IPC Ingestion
   useEffect(() => {
     const preventNav = (e) => e.preventDefault();
     window.addEventListener('dragover', preventNav);
     window.addEventListener('drop', preventNav);
 
-    let cleanup = () => {};
+    let cleanupOpenedFiles = () => {};
     if (window.electronAPI) {
-      cleanup = window.electronAPI.onOpenedFiles((files) => {
-        if (files && files.length > 0) {
-          addImagesToLibrary(files);
-        }
-      });
+      cleanupOpenedFiles = window.electronAPI.onOpenedFiles(handleImportResult);
     }
 
     return () => {
       window.removeEventListener('dragover', preventNav);
       window.removeEventListener('drop', preventNav);
-      cleanup();
+      cleanupOpenedFiles();
     };
-  }, [addImagesToLibrary]);
+  }, [handleImportResult]);
+
+  // Keep imported folders current while Purview is running and refresh them on launch.
+  useEffect(() => {
+    if (!window.electronAPI?.watchSourceFolders) return undefined;
+    const watchedRoots = [...new Set([...sourceFolders, ...sourceFiles.map(file => file.root).filter(Boolean)])];
+    window.electronAPI.watchSourceFolders(watchedRoots).catch(() => {});
+    if (sourceFolders.length > 0 || sourceFiles.length > 0) {
+      syncTrackedSources(sourceFolders, sourceFiles).catch(() => {});
+    }
+
+    return () => {
+      window.electronAPI.watchSourceFolders([]).catch(() => {});
+    };
+  }, [sourceFiles, sourceFolders, syncTrackedSources]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.onSourceFolderChanged) return undefined;
+    return window.electronAPI.onSourceFolderChanged(sourcePath => {
+      syncTrackedSources([sourcePath]).catch(() => {});
+    });
+  }, [syncTrackedSources]);
 
   // Scroll wheel on scale bar
   useEffect(() => {
@@ -336,17 +499,27 @@ function App() {
   const handleWindowDrop = async (e) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      const droppedPaths = Array.from(e.dataTransfer.files).map(f => f.path).filter(Boolean);
-      if (droppedPaths.length > 0) {
-        if (window.electronAPI?.scanPaths) {
-          const imageFiles = await window.electronAPI.scanPaths(droppedPaths);
-          if (imageFiles && imageFiles.length > 0) {
-            addImagesToLibrary(imageFiles);
+      const droppedPaths = Array.from(e.dataTransfer.files).map(file => {
+        if (window.electronAPI?.getPathForFile) {
+          try {
+            return window.electronAPI.getPathForFile(file);
+          } catch {
+            return '';
           }
+        }
+        return file.path || '';
+      }).filter(Boolean);
+      if (droppedPaths.length > 0) {
+        if (window.electronAPI?.importPaths) {
+          const result = await window.electronAPI.importPaths(droppedPaths);
+          handleImportResult(result);
+        } else if (window.electronAPI?.scanPaths) {
+          const imageFiles = await window.electronAPI.scanPaths(droppedPaths);
+          handleImportResult(imageFiles);
         } else {
           const imageFiles = droppedPaths.filter(f => /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?|ico)$/i.test(f));
           if (imageFiles.length > 0) {
-            addImagesToLibrary(imageFiles);
+            handleImportResult(imageFiles);
           }
         }
       }
@@ -435,6 +608,8 @@ function App() {
   const handleCreateAlbum = (name) => {
     const albumId = `album-${Date.now()}`;
     setAlbums(prev => [...prev, { id: albumId, name }]);
+    setSelectMode(false);
+    setSelectedIds(new Set());
     setActiveView(albumId);
   };
 
@@ -454,6 +629,8 @@ function App() {
   const handleCreateBoard = (name) => {
     const boardId = `board-${Date.now()}`;
     setBoards(prev => [...prev, { id: boardId, name, itemIds: [] }]);
+    setSelectMode(false);
+    setSelectedIds(new Set());
     setActiveView(boardId);
   };
 
@@ -530,11 +707,14 @@ function App() {
   }, [currentViewItems]);
 
   const handleRemoveSelected = useCallback(() => {
-    if (selectedIds.size === 0) return;
-    setItems(prev => prev.filter(item => !selectedIds.has(item.id)));
+    const visibleSelectedIds = new Set(currentViewItems
+      .map(item => item.id)
+      .filter(id => selectedIds.has(id)));
+    if (visibleSelectedIds.size === 0) return;
+    setItems(prev => prev.filter(item => !visibleSelectedIds.has(item.id)));
     setSelectedIds(new Set());
     setSelectMode(false);
-  }, [selectedIds, setItems]);
+  }, [currentViewItems, selectedIds, setItems]);
 
   // Intelligent Overlapping & Duplicate Image Detection across folders
   const duplicateGroups = useMemo(() => {
@@ -900,8 +1080,13 @@ function App() {
           onTogglePin={togglePin}
           albums={albums}
           boards={boards}
+          libraryItems={items}
           onToggleAlbum={toggleAlbumForItem}
           onToggleBoard={toggleBoardForItem}
+          onOpenRelated={(relatedItem) => {
+            const relatedIndex = items.findIndex(item => item.id === relatedItem.id);
+            if (relatedIndex >= 0) setPreviewData({ itemList: items, index: relatedIndex });
+          }}
         />
       )}
     </div>

@@ -8,10 +8,56 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconPlus,
-  IconMinus
+  IconMinus,
+  IconExternal
 } from './icons';
 import { getImageSrc } from '../utils/image';
 import '../styles/lightbox.css';
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return 'Unavailable';
+  if (bytes === 0) return '0 bytes';
+  const units = ['bytes', 'KB', 'MB', 'GB', 'TB'];
+  const unitIndex = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  const value = bytes / (1024 ** unitIndex);
+  return `${value.toFixed(unitIndex === 0 ? 0 : value >= 10 ? 1 : 2)} ${units[unitIndex]}`;
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return 'Unavailable';
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return String(timestamp);
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+function formatMetadataValue(value) {
+  if (value === null || value === undefined || value === '') return 'Unavailable';
+  if (Array.isArray(value)) return value.join(', ');
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return Number.isInteger(value) ? String(value) : Number(value.toFixed(4)).toString();
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) return formatDate(value);
+  return String(value);
+}
+
+function humanizeMetadataKey(key) {
+  return key
+    .split('.').at(-1)
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/^GPS/, 'GPS ')
+    .replace(/^ISO$/, 'ISO');
+}
+
+function MetadataRow({ label, value, title }) {
+  return (
+    <div className="inspector-row">
+      <span className="inspector-row-label">{label}</span>
+      <span className="inspector-row-value" title={title || String(value ?? '')}>{formatMetadataValue(value)}</span>
+    </div>
+  );
+}
 
 /**
  * Full-resolution preview modal with interactive pan & zoom.
@@ -28,7 +74,9 @@ export default function Lightbox({
   albums = [],
   boards = [],
   onToggleAlbum,
-  onToggleBoard
+  onToggleBoard,
+  libraryItems = [],
+  onOpenRelated
 }) {
   const item = itemList[index];
 
@@ -37,8 +85,24 @@ export default function Lightbox({
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [assignmentMenu, setAssignmentMenu] = useState(null);
+  const [inspectionState, setInspection] = useState({ itemKey: null, status: 'loading', metadata: null, exif: {}, related: [] });
   const dragStartRef = useRef({ x: 0, y: 0 });
   const frameRef = useRef(null);
+  const libraryItemsRef = useRef(libraryItems);
+  const inspectionKey = `${item.id}:${item.path}:${item.modifiedAt || item.size || ''}`;
+  const inspection = inspectionState.itemKey === inspectionKey
+    ? inspectionState
+    : {
+        itemKey: inspectionKey,
+        status: window.electronAPI?.inspectImage ? 'loading' : 'unsupported',
+        metadata: null,
+        exif: {},
+        related: []
+      };
+
+  useEffect(() => {
+    libraryItemsRef.current = libraryItems;
+  }, [libraryItems]);
 
   // Reset zoom whenever image changes (React recommended pattern without effect)
   const [prevIndex, setPrevIndex] = useState(index);
@@ -97,6 +161,34 @@ export default function Lightbox({
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const inspect = window.electronAPI?.inspectImage;
+    if (!inspect) return undefined;
+
+    const candidates = libraryItemsRef.current.map(candidate => ({
+      id: candidate.id,
+      path: candidate.path,
+      size: candidate.size,
+      modifiedAt: candidate.modifiedAt,
+      aspectRatio: candidate.aspectRatio
+    }));
+    inspect({
+      id: item.id,
+      path: item.path,
+      size: item.size,
+      modifiedAt: item.modifiedAt,
+      aspectRatio: item.aspectRatio
+    }, candidates).then(result => {
+      if (!cancelled) setInspection({ ...result, itemKey: inspectionKey });
+    }).catch(error => {
+      if (!cancelled) {
+        setInspection({ itemKey: inspectionKey, status: 'error', metadata: null, exif: {}, related: [], error: error?.message || 'Inspection failed.' });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [inspectionKey, item.aspectRatio, item.id, item.modifiedAt, item.path, item.size]);
 
   // Wheel zoom handler on frame
   useEffect(() => {
@@ -313,7 +405,7 @@ export default function Lightbox({
       </div>
 
       {/* Main Preview Center Area */}
-      <div className="preview-center" onClick={(e) => e.stopPropagation()}>
+      <div className="preview-center has-inspector" onClick={(e) => e.stopPropagation()}>
         {itemList.length > 1 && (
           <button
             type="button"
@@ -333,7 +425,7 @@ export default function Lightbox({
         >
           <img
             key={index}
-            src={getImageSrc(item.path)}
+            src={getImageSrc(item.path, item.modifiedAt)}
             alt="Expanded Preview"
             className="preview-img"
             draggable="false"
@@ -355,6 +447,130 @@ export default function Lightbox({
           </button>
         )}
       </div>
+
+      <aside className="preview-inspector" onClick={(e) => e.stopPropagation()}>
+        <div className="inspector-scroll">
+          <header className="inspector-header">
+            <div className="inspector-eyebrow">IMAGE INSPECTOR</div>
+            <h2 title={inspection.metadata?.fileName || item.path}>
+              {inspection.metadata?.fileName || item.path.split('/').pop() || 'Image'}
+            </h2>
+            <div className="inspector-source-row">
+              <span title={inspection.metadata?.folder || item.path}>{inspection.metadata?.folder || item.path}</span>
+              {!/^(https?:|data:|blob:)/i.test(item.path) && (
+                <button type="button" onClick={() => window.electronAPI?.showInFolder?.(item.path)} title="Reveal in Finder">
+                  <IconExternal />
+                </button>
+              )}
+            </div>
+          </header>
+
+          <section className="inspector-section">
+            <div className="inspector-section-title">FILE</div>
+            <div className="inspector-table">
+              <MetadataRow label="Size" value={inspection.metadata ? formatBytes(inspection.metadata.size) : formatBytes(item.size)} />
+              <MetadataRow label="Type" value={inspection.metadata?.mediaType || inspection.metadata?.extension || 'Unavailable'} />
+              <MetadataRow label="Created" value={formatDate(inspection.metadata?.createdAt || item.createdAt)} />
+              <MetadataRow label="Modified" value={formatDate(inspection.metadata?.modifiedAt || item.modifiedAt)} />
+              <MetadataRow label="Fingerprint" value={item.hash ? item.hash.slice(-16) : 'Unavailable'} title={item.hash} />
+            </div>
+          </section>
+
+          <section className="inspector-section">
+            <div className="inspector-section-title">IMAGE</div>
+            <div className="inspector-table">
+              <MetadataRow label="Dimensions" value={inspection.metadata?.width && inspection.metadata?.height ? `${inspection.metadata.width} × ${inspection.metadata.height} px` : 'Unavailable'} />
+              <MetadataRow label="Megapixels" value={inspection.metadata?.width && inspection.metadata?.height ? `${((inspection.metadata.width * inspection.metadata.height) / 1000000).toFixed(2)} MP` : 'Unavailable'} />
+              <MetadataRow label="Aspect ratio" value={inspection.metadata?.width && inspection.metadata?.height ? (inspection.metadata.width / inspection.metadata.height).toFixed(3) : item.aspectRatio} />
+              <MetadataRow label="Color space" value={inspection.metadata?.space?.toUpperCase()} />
+              <MetadataRow label="Channels" value={inspection.metadata?.channels} />
+              <MetadataRow label="Bit depth" value={inspection.metadata?.bitsPerSample ? `${inspection.metadata.bitsPerSample}-bit` : inspection.metadata?.depth} />
+              <MetadataRow label="Density" value={inspection.metadata?.density ? `${inspection.metadata.density} DPI` : null} />
+              <MetadataRow label="Alpha" value={inspection.metadata?.hasAlpha} />
+              <MetadataRow label="Progressive" value={inspection.metadata?.isProgressive} />
+              {inspection.metadata?.dominantColor && (
+                <div className="inspector-row">
+                  <span className="inspector-row-label">Average color</span>
+                  <span className="inspector-color-value">
+                    <i style={{ background: inspection.metadata.dominantColor }} />
+                    {inspection.metadata.dominantColor.toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {Object.keys(inspection.exif || {}).length > 0 && (
+            <section className="inspector-section">
+              <div className="inspector-section-title">CAPTURE &amp; CAMERA</div>
+              <div className="inspector-table">
+                {Object.entries(inspection.exif).map(([key, value]) => (
+                  <MetadataRow key={key} label={humanizeMetadataKey(key)} value={value} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="inspector-section">
+            <div className="inspector-section-title">ORGANIZATION</div>
+            <div className="inspector-table">
+              <MetadataRow label="Albums" value={albums.filter(album => (item.albumIds || []).includes(album.id)).map(album => album.name).join(', ') || 'None'} />
+              <MetadataRow label="Boards" value={boards.filter(board => board.itemIds.includes(item.id)).map(board => board.name).join(', ') || 'None'} />
+              <MetadataRow label="Pinned" value={item.isPinned} />
+              <MetadataRow label="Favorite" value={item.isFavorite} />
+              <MetadataRow label="Copies" value={(item.duplicatePaths || [item.path]).length} />
+            </div>
+            {(item.duplicatePaths || []).length > 1 && (
+              <div className="inspector-path-list">
+                {item.duplicatePaths.map(duplicatePath => (
+                  <button type="button" key={duplicatePath} onClick={() => window.electronAPI?.showInFolder?.(duplicatePath)} title={duplicatePath}>
+                    <span>{duplicatePath.split('/').pop()}</span>
+                    <IconExternal />
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="inspector-section related-section">
+            <div className="inspector-section-heading">
+              <div className="inspector-section-title">RELATED IMAGES</div>
+              {inspection.status === 'ready' && (
+                <span>{inspection.indexedCount}/{inspection.candidateCount}</span>
+              )}
+            </div>
+            {inspection.status === 'loading' && (
+              <div className="inspector-analysis-state"><i />Analyzing visual similarity…</div>
+            )}
+            {inspection.status === 'remote' && (
+              <div className="inspector-empty">Related-image analysis is available for local files.</div>
+            )}
+            {inspection.status === 'error' && (
+              <div className="inspector-empty">{inspection.error}</div>
+            )}
+            {inspection.status === 'ready' && inspection.related.length === 0 && (
+              <div className="inspector-empty">No related local images indexed yet.</div>
+            )}
+            {inspection.related?.length > 0 && (
+              <div className="related-grid">
+                {inspection.related.map(relation => {
+                  const relatedItem = libraryItems.find(candidate => candidate.id === relation.id || candidate.path === relation.path);
+                  if (!relatedItem) return null;
+                  return (
+                    <button type="button" key={relation.path} onClick={() => onOpenRelated?.(relatedItem)} title={`${Math.round(relation.score * 100)}% visually similar`}>
+                      <img src={getImageSrc(relatedItem.path, relatedItem.modifiedAt)} alt="Related" loading="lazy" />
+                      <span>{Math.round(relation.score * 100)}%</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {inspection.isPartial && (
+              <div className="inspector-index-note">More fingerprints will be cached as images are inspected.</div>
+            )}
+          </section>
+        </div>
+      </aside>
 
       {/* Bottom Shortcuts / Hints Bar */}
       <div className="preview-bottom-bar" onClick={(e) => e.stopPropagation()}>
